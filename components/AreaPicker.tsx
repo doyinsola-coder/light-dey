@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AreaStatus } from "@/lib/types";
-import { CITIES } from "@/lib/types";
+import { CITIES, POPULAR_CITIES } from "@/lib/types";
 
 type Suggestion = { id: string; name: string; score: number };
 
@@ -80,21 +80,36 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 rounded-full bg-(--card) p-1" role="tablist" aria-label="City">
-        {CITIES.map((c) => (
-          <button
-            key={c.city}
-            role="tab"
-            aria-selected={c.city === city}
-            onClick={() => onCityChange(c.city)}
-            className={`min-h-11 rounded-full text-[15px] font-bold ${
-              c.city === city ? "bg-(--text) text-(--bg)" : "text-(--soft)"
-            }`}
+      <label className="flex flex-col gap-2">
+        <span className="text-sm text-(--soft)">City</span>
+        <span className="relative">
+          <select
+            value={city}
+            onChange={(e) => {
+              onCityChange(e.target.value);
+              setQ("");
+              setError(null);
+            }}
+            className="min-h-12 w-full appearance-none rounded-2xl border border-(--line) bg-(--raised) px-4 pr-10 text-base font-bold outline-none focus:border-(--light)"
           >
-            {c.city}
-          </button>
-        ))}
-      </div>
+            <optgroup label="Popular">
+              {POPULAR_CITIES.map((c) => (
+                <option key={`p-${c}`} value={c}>{c}</option>
+              ))}
+            </optgroup>
+            <optgroup label="All cities">
+              {CITIES.filter((c) => !(POPULAR_CITIES as readonly string[]).includes(c.city)).map((c) => (
+                <option key={c.city} value={c.city}>
+                  {c.city} ({c.state})
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </label>
 
       <label className="flex flex-col gap-2">
         <span className="text-sm text-(--soft)">Search your area</span>
@@ -112,6 +127,12 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
 
       <ul className="flex flex-col">
         {loading && areas.length === 0 && <li className="py-3 text-(--muted)">Loading areas…</li>}
+        {!loading && areas.length === 0 && term.length === 0 && (
+          <li className="rounded-[22px] border-2 border-dashed border-(--line-strong) p-5 text-[15px] text-(--soft)">
+            <strong className="block text-base text-(--text)">You&apos;re early in {city}.</strong>
+            Type your area in the box above and add it. Your neighbours will find it after you.
+          </li>
+        )}
         {list.map((a) => (
           <li key={a.area_id}>
             <button
