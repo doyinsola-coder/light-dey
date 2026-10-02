@@ -7,6 +7,8 @@ import { CITIES } from "@/lib/types";
 import { getApproxLocation, store, timeAgo, whatsappShare } from "@/lib/helpers";
 import { Logo } from "@/components/Logo";
 import { StatusCard } from "@/components/StatusCard";
+import { MixedNotice } from "@/components/MixedNotice";
+import { HowItWorks } from "@/components/HowItWorks";
 import { AreaPicker } from "@/components/AreaPicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TodayBar } from "@/components/TodayBar";
@@ -35,6 +37,7 @@ export default function LightDeyApp() {
   const [areas, setAreas] = useState<AreaStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
+  const [prefill, setPrefill] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [view, setView] = useState<"home" | "map" | "leaderboard">("home");
@@ -149,6 +152,7 @@ export default function LightDeyApp() {
           onCityChange={changeCity}
           onPick={pickArea}
           onAdd={addArea}
+          initialQuery={prefill}
           onClose={area ? () => setPicking(false) : undefined}
         />
       </main>
@@ -231,7 +235,10 @@ export default function LightDeyApp() {
       <header className="flex items-center gap-2">
         <div className="mr-auto"><Logo /></div>
         <button
-          onClick={() => setPicking(true)}
+          onClick={() => {
+            setPrefill("");
+            setPicking(true);
+          }}
           aria-label="Change area"
           className="flex min-h-11 items-center gap-1.5 rounded-full border border-(--line) bg-(--raised) px-3.5 text-sm font-medium"
         >
@@ -244,6 +251,14 @@ export default function LightDeyApp() {
       </header>
 
       <StatusCard area={area} />
+
+      <MixedNotice
+        area={area}
+        onAddStreet={() => {
+          setPrefill(`${area.name} `);
+          setPicking(true);
+        }}
+      />
 
       <section className="flex flex-col gap-2.5" aria-label="Report">
         <span className="text-[15px] font-medium text-(--soft)">What&apos;s happening where you are?</span>
@@ -315,6 +330,8 @@ export default function LightDeyApp() {
           </div>
         ))}
       </section>
+
+      <HowItWorks />
     </main>
   );
 }

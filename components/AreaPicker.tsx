@@ -14,6 +14,7 @@ type Props = {
   onCityChange: (city: string) => void;
   onPick: (areaId: string) => void;
   onAdd: (name: string) => Promise<string | null>; // returns an error message, or null when it worked
+  initialQuery?: string; // e.g. "Tanke " when adding a street inside Tanke
   onClose?: () => void;
 };
 
@@ -27,8 +28,8 @@ function tidyName(raw: string) {
     .join(" ");
 }
 
-export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, onClose }: Props) {
-  const [q, setQ] = useState("");
+export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, initialQuery = "", onClose }: Props) {
+  const [q, setQ] = useState(initialQuery);
   const [fuzzy, setFuzzy] = useState<{ key: string; items: Suggestion[] }>({ key: "", items: [] });
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,8 +113,11 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
       </label>
 
       <label className="flex flex-col gap-2">
-        <span className="text-sm text-(--soft)">Search your area</span>
+        <span className="text-sm text-(--soft)">
+          {initialQuery ? "Type your street after the area name, e.g. Tanke Oke-Odo" : "Search your area"}
+        </span>
         <input
+          autoFocus={initialQuery.length > 0}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
