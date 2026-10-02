@@ -15,6 +15,7 @@ import { TodayBar } from "@/components/TodayBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
+import { ReportButtons, type ReportOutcome } from "@/components/ReportButtons";
 import dynamic from "next/dynamic";
 
 // The map library is big, so it only loads when someone opens the map
@@ -24,14 +25,6 @@ const MapView = dynamic(() => import("@/components/MapView"), {
 });
 
 const REFRESH_MS = 20_000;
-
-function Spinner() {
-  return (
-    <svg className="ld-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-      <path d="M21 12a9 9 0 1 1-9-9" />
-    </svg>
-  );
-}
 
 function savedCity(): string {
   const c = store.get("lightdey_city");
@@ -46,10 +39,6 @@ export default function LightDeyApp() {
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
   const [prefill, setPrefill] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [sending, setSending] = useState<"on" | "off" | null>(null);
-  const [popped, setPopped] = useState<{ which: "on" | "off"; n: number } | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   const [view, setView] = useState<"home" | "map" | "leaderboard">("home");
 
   const fetchAreas = useCallback(
@@ -91,7 +80,6 @@ export default function LightDeyApp() {
     store.set("lightdey_city", city);
     setPicking(false);
     setView("home");
-    setMsg(null);
   }
 
   // Add a new area (or get the existing one if the name is already there), then open it
@@ -114,11 +102,9 @@ export default function LightDeyApp() {
     setLoading(true);
   }
 
-  async function report(status: Exclude<Status, "unknown">) {
-    if (!area || busy) return;
-    setBusy(true);
-    setSending(status);
-    setMsg(null);
+  // Returns how it went; ReportButtons shows the result and the 15-minute timer
+  async function report(status: Exclude<Status, "unknown">): Promise<ReportOutcome> {
+    if (!area) return "error";
     const loc = await getApproxLocation();
     const { data: lightCameBack, error } = await supabase.rpc("report_status", {
       p_area_id: area.area_id,
@@ -127,28 +113,20 @@ export default function LightDeyApp() {
       p_lat: loc?.lat ?? null,
       p_lng: loc?.lng ?? null,
     });
-    if (error) {
-      setMsg(
-        error.message.includes("too_soon")
-          ? "You reported recently. You can report again in 15 mins."
-          : "Couldn't send that. Check your data and try again."
-      );
-    } else {
-      setMsg("Thanks! Your neighbours can see it now.");
-      setPopped((p) => ({ which: status, n: (p?.n ?? 0) + 1 }));
-      // This report brought light back: tell everyone following this area (the server double-checks)
-      if (lightCameBack === true) {
-        fetch("/api/push/notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ areaId: area.area_id }),
-        }).catch(() => {});
-      }
-      await load();
+    if (error) return error.message.includes("too_soon") ? "too_soon" : "error";
+
+    // This report brought light back: tell everyone following this area (the server double-checks)
+    if (lightCameBack === true) {
+      fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ areaId: area.area_id }),
+      }).catch(() => {});
     }
-    setBusy(false);
-    setSending(null);
+    await load();
+    return "ok";
   }
+
 
   // First visit, or "Change area"
   if (!area || picking) {
@@ -274,34 +252,7 @@ export default function LightDeyApp() {
         }}
       />
 
-      <section className="flex flex-col gap-2.5" aria-label="Report">
-        <span className="text-[15px] font-medium text-(--soft)">What&apos;s happening where you are?</span>
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            key={`on-${popped?.which === "on" ? popped.n : 0}`}
-            onClick={() => report("on")}
-            disabled={busy}
-            className={`flex min-h-16 items-center justify-center gap-2 rounded-[18px] bg-(--light) text-[17px] font-bold text-(--ink) disabled:opacity-60 ${
-              popped?.which === "on" ? "ld-pop" : ""
-            }`}
-          >
-            {sending === "on" && <Spinner />}
-            {sending === "on" ? "Sending…" : "Light dey"}
-          </button>
-          <button
-            key={`off-${popped?.which === "off" ? popped.n : 0}`}
-            onClick={() => report("off")}
-            disabled={busy}
-            className={`flex min-h-16 items-center justify-center gap-2 rounded-[18px] border border-(--line-strong) bg-(--raised) text-[17px] font-bold disabled:opacity-60 ${
-              popped?.which === "off" ? "ld-pop" : ""
-            }`}
-          >
-            {sending === "off" && <Spinner />}
-            {sending === "off" ? "Sending…" : "No light"}
-          </button>
-        </div>
-        {msg && <p className="text-sm text-(--muted)" role="status">{msg}</p>}
-      </section>
+      <ReportButtons areaName={area.name} onReport={report} />
 
       <NotifyButton areaId={area.area_id} areaName={area.name} />
 
