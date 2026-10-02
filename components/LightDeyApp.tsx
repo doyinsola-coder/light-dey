@@ -25,6 +25,14 @@ const MapView = dynamic(() => import("@/components/MapView"), {
 
 const REFRESH_MS = 20_000;
 
+function Spinner() {
+  return (
+    <svg className="ld-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-9-9" />
+    </svg>
+  );
+}
+
 function savedCity(): string {
   const c = store.get("lightdey_city");
   return c && CITIES.some((x) => x.city === c) ? c : CITIES[0].city;
@@ -39,6 +47,8 @@ export default function LightDeyApp() {
   const [picking, setPicking] = useState(false);
   const [prefill, setPrefill] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState<"on" | "off" | null>(null);
+  const [popped, setPopped] = useState<{ which: "on" | "off"; n: number } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [view, setView] = useState<"home" | "map" | "leaderboard">("home");
 
@@ -107,6 +117,7 @@ export default function LightDeyApp() {
   async function report(status: Exclude<Status, "unknown">) {
     if (!area || busy) return;
     setBusy(true);
+    setSending(status);
     setMsg(null);
     const loc = await getApproxLocation();
     const { data: lightCameBack, error } = await supabase.rpc("report_status", {
@@ -124,6 +135,7 @@ export default function LightDeyApp() {
       );
     } else {
       setMsg("Thanks! Your neighbours can see it now.");
+      setPopped((p) => ({ which: status, n: (p?.n ?? 0) + 1 }));
       // This report brought light back: tell everyone following this area (the server double-checks)
       if (lightCameBack === true) {
         fetch("/api/push/notify", {
@@ -135,6 +147,7 @@ export default function LightDeyApp() {
       await load();
     }
     setBusy(false);
+    setSending(null);
   }
 
   // First visit, or "Change area"
@@ -250,7 +263,8 @@ export default function LightDeyApp() {
         <ThemeToggle />
       </header>
 
-      <StatusCard area={area} />
+      {/* key: the card re-animates whenever the status changes */}
+      <StatusCard key={`${area.area_id}-${area.status}`} area={area} />
 
       <MixedNotice
         area={area}
@@ -264,18 +278,26 @@ export default function LightDeyApp() {
         <span className="text-[15px] font-medium text-(--soft)">What&apos;s happening where you are?</span>
         <div className="grid grid-cols-2 gap-2.5">
           <button
+            key={`on-${popped?.which === "on" ? popped.n : 0}`}
             onClick={() => report("on")}
             disabled={busy}
-            className="min-h-16 rounded-[18px] bg-(--light) text-[17px] font-bold text-(--ink) disabled:opacity-60"
+            className={`flex min-h-16 items-center justify-center gap-2 rounded-[18px] bg-(--light) text-[17px] font-bold text-(--ink) disabled:opacity-60 ${
+              popped?.which === "on" ? "ld-pop" : ""
+            }`}
           >
-            Light dey
+            {sending === "on" && <Spinner />}
+            {sending === "on" ? "Sending…" : "Light dey"}
           </button>
           <button
+            key={`off-${popped?.which === "off" ? popped.n : 0}`}
             onClick={() => report("off")}
             disabled={busy}
-            className="min-h-16 rounded-[18px] border border-(--line-strong) bg-(--raised) text-[17px] font-bold disabled:opacity-60"
+            className={`flex min-h-16 items-center justify-center gap-2 rounded-[18px] border border-(--line-strong) bg-(--raised) text-[17px] font-bold disabled:opacity-60 ${
+              popped?.which === "off" ? "ld-pop" : ""
+            }`}
           >
-            No light
+            {sending === "off" && <Spinner />}
+            {sending === "off" ? "Sending…" : "No light"}
           </button>
         </div>
         {msg && <p className="text-sm text-(--muted)" role="status">{msg}</p>}

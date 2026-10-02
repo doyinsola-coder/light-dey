@@ -6,7 +6,7 @@ export function StatusCard({ area }: { area: AreaStatus }) {
 
   if (area.status === "unknown") {
     return (
-      <div className="flex flex-col gap-3 rounded-[28px] border-2 border-dashed border-(--line-strong) px-6 py-8">
+      <div className="ld-card-in flex flex-col gap-3 rounded-[28px] border-2 border-dashed border-(--line-strong) px-6 py-8">
         <span className="text-[13px] font-bold uppercase tracking-[1.5px] text-(--muted)">{area.name}</span>
         <span className="font-display text-[38px] font-extrabold leading-none tracking-tight">
           You&apos;re the first one here.
@@ -23,8 +23,8 @@ export function StatusCard({ area }: { area: AreaStatus }) {
     <div
       className={
         on
-          ? "flex flex-col gap-2.5 rounded-[28px] bg-(--light) px-6 py-7 text-(--ink)"
-          : "flex flex-col gap-2.5 rounded-[28px] border border-(--line) bg-(--raised) px-6 py-7"
+          ? "ld-glow flex flex-col gap-2.5 rounded-[28px] bg-(--light) px-6 py-7 text-(--ink)"
+          : "ld-card-in flex flex-col gap-2.5 rounded-[28px] border border-(--line) bg-(--raised) px-6 py-7"
       }
     >
       <span className={`text-[13px] font-bold uppercase tracking-[1.5px] ${on ? "" : "text-(--muted)"}`}>
