@@ -3,9 +3,10 @@ import type { MetadataRoute } from "next";
 // Lets people "Add to Home Screen". On iPhone, that's required for alerts to work.
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Light Dey?",
     short_name: "Light Dey",
-    description: "Does light dey your area? Live power reports from your neighbours.",
+    description: "shey light dey your area? Live power reports from your neighbours.",
     start_url: "/",
     display: "standalone",
     background_color: "#0E1014",

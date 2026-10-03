@@ -16,6 +16,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
 import { ReportButtons, type ReportOutcome } from "@/components/ReportButtons";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import dynamic from "next/dynamic";
 
 // The map library is big, so it only loads when someone opens the map
@@ -38,6 +39,7 @@ export default function LightDeyApp() {
   const [areas, setAreas] = useState<AreaStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
+  const [reported, setReported] = useState(false); // shows the install card after a first report
   const [prefill, setPrefill] = useState("");
   const [view, setView] = useState<"home" | "map" | "leaderboard">("home");
 
@@ -124,6 +126,7 @@ export default function LightDeyApp() {
       }).catch(() => {});
     }
     await load();
+    setReported(true);
     return "ok";
   }
 
@@ -305,6 +308,8 @@ export default function LightDeyApp() {
       </section>
 
       <HowItWorks />
+
+      <InstallPrompt nudge={reported} />
     </main>
   );
 }

@@ -117,7 +117,13 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes ld-sheet-in {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: none; }
+}
+
 .ld-pop { animation: ld-pop 0.35s ease-out; }
+.ld-sheet-in { animation: ld-sheet-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1); }
 .ld-card-in { animation: ld-card-in 0.35s ease-out; }
 .ld-glow { animation: ld-card-in 0.35s ease-out, ld-glow 1.2s ease-out 0.15s; }
 .ld-spin-in { animation: ld-spin-in 0.3s ease-out; }
