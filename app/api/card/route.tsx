@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { supabase } from "@/lib/supabase";
+import { MAKER } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +97,9 @@ export async function GET(req: Request) {
   const place = city ? `${name}, ${city}` : name;
   const site = url.host;
 
-  const fontText = `${big}${line1}${line2}Light Dey?0123456789 hrs`;
+  const credit = `by ${MAKER.handle}`;
+  // The font is downloaded only for the letters on this card, so every piece of text must be in here
+  const fontText = [big, line1, line2, place.toUpperCase(), site, credit, "Light Dey?", "Today", "hrs of light", "Does light dey your area?", "0123456789"].join(" ");
   const [extraBold, bold] = await Promise.all([loadFont(800, fontText), loadFont(700, fontText)]);
   const fonts = [
     ...(extraBold ? [{ name: "Bricolage", data: extraBold, weight: 800 as const, style: "normal" as const }] : []),
@@ -175,7 +178,10 @@ export async function GET(req: Request) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `3px solid ${C.line}`, paddingTop: 44, marginTop: 30 }}>
             <div style={{ fontSize: 50, fontWeight: 700 }}>Does light dey your area?</div>
-            <div style={{ fontSize: 46, color: C.light }}>{site}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontSize: 46, color: C.light }}>{site}</div>
+              <div style={{ fontSize: 34, color: C.muted }}>{credit}</div>
+            </div>
           </div>
         </div>
       </div>

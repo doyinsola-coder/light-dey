@@ -17,6 +17,7 @@ import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
 import { ReportButtons, type ReportOutcome } from "@/components/ReportButtons";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { MAKER, whatsappChatLink } from "@/lib/brand";
 import dynamic from "next/dynamic";
 
 // The map library is big, so it only loads when someone opens the map
@@ -308,6 +309,27 @@ export default function LightDeyApp() {
       </section>
 
       <HowItWorks />
+
+      <footer className="flex flex-col items-center gap-1 pb-4 pt-2 text-center text-[13px] text-(--muted)">
+        <span>
+          Built in Ilorin by{" "}
+          <a href={MAKER.url} target="_blank" rel="noopener noreferrer" className="font-bold text-(--soft) underline underline-offset-4">
+            {MAKER.name} ({MAKER.handle})
+          </a>
+        </span>
+        <span>Follow for what I build next 👀</span>
+        <a
+          href={whatsappChatLink()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 flex min-h-11 items-center gap-2 rounded-full border border-(--line) bg-(--raised) px-4 text-[14px] font-bold text-(--text)"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true">
+            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" />
+          </svg>
+          Chat with me on WhatsApp
+        </a>
+      </footer>
 
       <InstallPrompt nudge={reported} />
     </main>

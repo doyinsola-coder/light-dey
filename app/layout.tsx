@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   title: "Light Dey?",
   description: "Does light dey your area? Live power reports from your neighbours.",
   icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  authors: [{ name: "Doyinsola", url: "https://x.com/TheMaleDoyin" }],
+  creator: "Doyinsola (@TheMaleDoyin)",
   appleWebApp: { capable: true, title: "Light Dey", statusBarStyle: "black-translucent" },
 };
 
