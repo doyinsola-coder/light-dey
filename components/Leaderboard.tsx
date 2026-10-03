@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { whatsappShare } from "@/lib/helpers";
+import { ShareCardButton } from "@/components/ShareCardButton";
 
 type CityRow = { city: string; hrs_per_day: number; areas: number };
 type AreaRow = { area_id: string; name: string; hrs_per_day: number; known_hours: number };
@@ -123,14 +124,22 @@ export function Leaderboard({ city, onBack, onOpenArea }: Props) {
       </p>
 
       {shareText && (
-        <a
-          href={whatsappShare(shareText)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-auto flex min-h-14 items-center justify-center rounded-2xl bg-(--light) text-base font-bold text-(--ink)"
-        >
-          Share this ranking
-        </a>
+        <div className="mt-auto flex flex-col gap-1">
+          <ShareCardButton
+            imageUrl={tab === "cities" ? "/api/leaderboard-card?type=cities" : `/api/leaderboard-card?type=areas&city=${encodeURIComponent(city)}`}
+            fileName={tab === "cities" ? "light-dey-cities-ranking" : `light-dey-${city}-ranking`}
+            text={shareText}
+            label="Share ranking card"
+          />
+          <a
+            href={whatsappShare(shareText)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-11 items-center justify-center text-[15px] font-medium text-(--soft) underline underline-offset-4"
+          >
+            or send it as text
+          </a>
+        </div>
       )}
     </main>
   );

@@ -261,7 +261,7 @@ export default function LightDeyApp() {
       <NotifyButton areaId={area.area_id} areaName={area.name} />
 
       <div className="flex flex-col gap-1">
-        <ShareCardButton areaId={area.area_id} areaName={area.name} text={shareText} />
+        <ShareCardButton imageUrl={`/api/card?area=${area.area_id}`} fileName={`light-dey-${area.name}`} text={shareText} />
         <a
           href={whatsappShare(shareText)}
           target="_blank"

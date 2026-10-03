@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 
-type Props = { areaId: string; areaName: string; text: string };
+type Props = {
+  imageUrl: string; // e.g. /api/card?area=… or /api/leaderboard-card?type=cities
+  fileName: string; // what the saved image is called
+  text: string; // caption that goes with it
+  label?: string;
+};
 
 // Makes the Status image and opens the phone's share sheet (WhatsApp is right there).
 // On laptops, where sharing files isn't supported, it downloads the image instead.
-export function ShareCardButton({ areaId, areaName, text }: Props) {
+export function ShareCardButton({ imageUrl, fileName, text, label = "Share card to Status" }: Props) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -14,11 +19,11 @@ export function ShareCardButton({ areaId, areaName, text }: Props) {
     setBusy(true);
     setNote(null);
     try {
-      const res = await fetch(`/api/card?area=${areaId}&t=${Date.now()}`);
+      const res = await fetch(`${imageUrl}${imageUrl.includes("?") ? "&" : "?"}t=${Date.now()}`);
       if (!res.ok) throw new Error("card");
       const blob = await res.blob();
-      const fileName = `light-dey-${areaName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
-      const file = new File([blob], fileName, { type: "image/png" });
+      const safeName = `${fileName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;
+      const file = new File([blob], safeName, { type: "image/png" });
 
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text });
@@ -26,7 +31,7 @@ export function ShareCardButton({ areaId, areaName, text }: Props) {
         const href = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = href;
-        a.download = fileName;
+        a.download = safeName;
         a.click();
         setTimeout(() => URL.revokeObjectURL(href), 5000);
         setNote("Image saved. Post it on your WhatsApp Status.");
@@ -50,7 +55,7 @@ export function ShareCardButton({ areaId, areaName, text }: Props) {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-5-5L5 21" />
         </svg>
-        {busy ? "Making your card…" : "Share card to Status"}
+        {busy ? "Making your card…" : label}
       </button>
       {note && <p className="text-sm text-(--muted)" role="status">{note}</p>}
     </div>
