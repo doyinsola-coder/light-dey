@@ -1,77 +1,69 @@
 import { ImageResponse } from "next/og";
 import { supabase } from "@/lib/supabase";
 import { MAKER } from "@/lib/brand";
-import { W, H, C, cardFonts, Logo } from "@/lib/cardKit";
+import { W, H, C, cardFonts, Logo, CardFooter, KIT_TEXT } from "@/lib/cardKit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type St = "on" | "off";
-type HourRow = { hour: string; status: St | null };
+type Row = { label: string; hrs: number };
+const MAX_ROWS = 8;
 
-// Shift a UTC time to Nigeria time (UTC+1, no daylight saving)
-const lagos = (d: Date) => new Date(d.getTime() + 60 * 60 * 1000);
-
+// /api/leaderboard-card?type=cities
+// /api/leaderboard-card?type=areas&city=Ilorin
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const id = url.searchParams.get("area") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response("Bad area", { status: 400 });
+  const type = url.searchParams.get("type") === "areas" ? "areas" : "cities";
+  const city = (url.searchParams.get("city") ?? "").slice(0, 40);
+  if (type === "areas" && !city) return new Response("Missing city", { status: 400 });
 
-  let name = "Your area";
-  let city = "";
-  let hours: HourRow[] = [];
+  let rows: Row[] = [];
   try {
-    const [{ data: area }, { data: hrs }] = await Promise.all([
-      supabase.from("areas").select("name, city").eq("id", id).maybeSingle(),
-      supabase.rpc("hourly_status", {
-        p_from: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-        p_to: new Date().toISOString(),
-        p_area: id,
-      }),
-    ]);
-    if (area) {
-      name = area.name;
-      city = area.city;
+    if (type === "cities") {
+      const { data } = await supabase.rpc("leaderboard_cities");
+      rows = ((data as { city: string; hrs_per_day: number }[] | null) ?? []).map((r) => ({
+        label: r.city,
+        hrs: Number(r.hrs_per_day),
+      }));
+    } else {
+      const { data } = await supabase.rpc("leaderboard_areas", { p_city: city });
+      rows = ((data as { name: string; hrs_per_day: number }[] | null) ?? []).map((r) => ({
+        label: r.name,
+        hrs: Number(r.hrs_per_day),
+      }));
     }
-    hours = (hrs as HourRow[] | null) ?? [];
   } catch {
-    // network trouble: still return a card, just without numbers
+    // network trouble: show the empty version
   }
+  rows = rows.slice(0, MAX_ROWS);
 
-  // Current run: how many hours in a row the latest status has lasted
-  const newestFirst = [...hours].sort((a, b) => b.hour.localeCompare(a.hour));
-  const current = newestFirst.find((h) => h.status)?.status ?? null;
-  let streak = 0;
-  if (current) {
-    for (const h of newestFirst) {
-      if (!h.status && streak === 0) continue; // skip empty hours before the latest report
-      if (h.status !== current) break;
-      streak++;
-    }
-  }
-
-  // Today's 24 hours (Nigeria time)
-  const nowL = lagos(new Date());
-  const today = nowL.toISOString().slice(0, 10);
-  const byHour = new Map<number, St>();
-  for (const h of hours) {
-    const t = lagos(new Date(h.hour));
-    if (h.status && t.toISOString().slice(0, 10) === today) byHour.set(t.getUTCHours(), h.status);
-  }
-  const nowHour = nowL.getUTCHours();
-  const lightToday = [...byHour.values()].filter((s) => s === "on").length;
-
-  const big = current ? `${streak} hr${streak === 1 ? "" : "s"}` : "Light dey?";
-  const line1 =
-    current === "off" ? "without light." : current === "on" ? "of light and counting." : `Nobody has reported from ${name} yet.`;
-  const line2 = current === "off" ? "We move." : current === "on" ? "Make e no go o." : "Be the first.";
-  const place = city ? `${name}, ${city}` : name;
+  const title = type === "cities" ? "Which city get light pass?" : `Which part of ${city} get light pass?`;
+  const kicker = "LAST 7 DAYS · HOURS OF LIGHT PER DAY";
+  const empty = "Not enough reports yet.";
+  const emptySub = "Report your area and get it on the board.";
+  const footerQ = type === "cities" ? "Where your city dey for the list?" : "Where your area dey for the list?";
   const site = url.host;
+  const credit = `Made by ${MAKER.handle}`;
+  const fmt = (h: number) => `${h} hrs`;
+  const perDay = "per day";
 
-  const credit = `by ${MAKER.handle}`;
-  // The font is downloaded only for the letters on this card, so every piece of text must be in here
-  const fontText = [big, line1, line2, place.toUpperCase(), site, credit, "Light Dey?", "Today", "hrs of light", "Does light dey your area?", "0123456789"].join(" ");
-  const { fonts, family } = await cardFonts(fontText);
+  const { fonts, family } = await cardFonts(
+    [title, kicker, empty, emptySub, footerQ, site, credit, perDay, KIT_TEXT, ...rows.map((r) => r.label), ...rows.map((r) => fmt(r.hrs))].join(" ")
+  );
+
+  const titleSize = title.length > 30 ? 92 : 108;
+  const podium = rows.length >= 3;
+  const rest = podium ? rows.slice(3) : rows;
+
+  // Podium order on screen: 2nd, 1st, 3rd
+  // A long list below means a shorter podium, so everything fits
+  const tall = rest.length <= 3 ? 1 : 0.8;
+  const MEDAL = [
+    { bg: `linear-gradient(180deg, ${C.lightTop} 0%, ${C.light} 50%, ${C.lightBottom} 100%)`, fg: C.ink, h: 420 * tall, ring: "#FFF1C2" },
+    { bg: "linear-gradient(180deg, #E4E7EC 0%, #B9C0CB 100%)", fg: C.ink, h: 335 * tall, ring: "#F4F6F9" },
+    { bg: "linear-gradient(180deg, #E8A86B 0%, #C0773A 100%)", fg: C.ink, h: 275 * tall, ring: "#F6D2AE" },
+  ];
+  const nameSize = (label: string, first: boolean) => (label.length > 11 ? 36 : label.length > 8 ? 42 : first ? 54 : 48);
 
   return new ImageResponse(
     (
@@ -81,66 +73,173 @@ export async function GET(req: Request) {
           height: H,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
-          background: C.bg,
+          position: "relative",
+          background: `linear-gradient(175deg, ${C.bg2} 0%, ${C.bg} 55%)`,
           color: C.text,
-          padding: "110px 96px",
+          padding: "100px 88px 80px",
           fontFamily: family,
         }}
       >
+        {/* yellow glow over the podium */}
+        <div
+          style={{
+            position: "absolute",
+            left: 140,
+            top: 420,
+            width: 800,
+            height: 800,
+            borderRadius: 800,
+            background: "radial-gradient(circle, rgba(255,197,49,0.16) 0%, rgba(255,197,49,0) 65%)",
+          }}
+        />
+
         <Logo />
 
-        {/* Headline */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
-          <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: 4, color: C.muted, textTransform: "uppercase" }}>
-            {place}
-          </div>
-          <div
-            style={{
-              fontSize: current ? 300 : 210,
-              fontWeight: 800,
-              lineHeight: 0.85,
-              letterSpacing: -12,
-              color: current === "on" ? C.light : current === "off" ? C.text : C.light,
-            }}
-          >
-            {big}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", fontSize: 88, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>
-            <div>{line1}</div>
-            <div style={{ color: C.muted }}>{line2}</div>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 64 }}>
+          <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: 3, color: C.light }}>{kicker}</div>
+          <div style={{ fontSize: titleSize, fontWeight: 800, lineHeight: 0.98, letterSpacing: -3 }}>{title}</div>
         </div>
 
-        {/* Today's bar + call to action */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 36, fontWeight: 700 }}>
-            <div>Today</div>
-            <div style={{ color: C.light }}>{`${lightToday} hr${lightToday === 1 ? "" : "s"} of light`}</div>
+        {rows.length === 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              marginTop: 90,
+              padding: 56,
+              borderRadius: 40,
+              border: `4px dashed ${C.line}`,
+            }}
+          >
+            <div style={{ fontSize: 58, fontWeight: 800 }}>{empty}</div>
+            <div style={{ fontSize: 42, color: C.muted }}>{emptySub}</div>
           </div>
-          <div style={{ display: "flex", gap: 8, height: 64 }}>
-            {Array.from({ length: 24 }, (_, h) => {
-              const s = byHour.get(h);
-              const future = h > nowHour;
+        )}
+
+        {podium && (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 22, marginTop: tall < 1 ? 50 : 70 }}>
+            {[1, 0, 2].map((i) => {
+              const r = rows[i];
+              const m = MEDAL[i];
+              const first = i === 0;
               return (
-                <div
-                  key={h}
-                  style={{
-                    flex: 1,
-                    borderRadius: 8,
-                    background: future ? "transparent" : s === "on" ? C.light : s === "off" ? C.off : C.empty,
-                    border: future ? `3px dashed ${C.line}` : "none",
-                  }}
-                />
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, gap: 18 }}>
+                  {first && (
+                    <svg width="86" height="66" viewBox="0 0 24 18" fill={C.light}>
+                      <path d="M2 6l5 4 5-8 5 8 5-4-2 11H4L2 6z" />
+                    </svg>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      fontSize: nameSize(r.label, first),
+                      fontWeight: 800,
+                      lineHeight: 1.02,
+                      letterSpacing: -1,
+                    }}
+                  >
+                    {r.label}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      width: "100%",
+                      height: m.h,
+                      paddingTop: tall < 1 ? 18 : 26,
+                      gap: 6,
+                      borderRadius: "36px 36px 14px 14px",
+                      background: m.bg,
+                      color: m.fg,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: first ? 96 : 80,
+                        height: first ? 96 : 80,
+                        borderRadius: 96,
+                        border: `5px solid ${m.ring}`,
+                        background: "rgba(20,18,11,0.12)",
+                        fontSize: first ? 56 : 46,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {`${i + 1}`}
+                    </div>
+                    <div style={{ fontSize: first ? 64 : 50, fontWeight: 800, letterSpacing: -2, marginTop: 8 }}>{fmt(r.hrs)}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, opacity: 0.7 }}>{perDay}</div>
+                  </div>
+                </div>
               );
             })}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `3px solid ${C.line}`, paddingTop: 44, marginTop: 30 }}>
-            <div style={{ fontSize: 50, fontWeight: 700 }}>Does light dey your area?</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div style={{ fontSize: 46, color: C.light }}>{site}</div>
-              <div style={{ fontSize: 34, color: C.muted }}>{credit}</div>
-            </div>
+        )}
+
+        {rest.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: podium ? 20 : 30,
+              marginTop: podium ? 30 : 70,
+              marginBottom: 40,
+              padding: "30px 36px",
+              borderRadius: 40,
+              background: C.panel,
+            }}
+          >
+            {rest.map((r, j) => {
+              const rank = (podium ? 4 : 1) + j;
+              return (
+                <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 62,
+                      height: 62,
+                      borderRadius: 62,
+                      background: C.empty,
+                      fontSize: 32,
+                      fontWeight: 800,
+                      color: C.muted,
+                    }}
+                  >
+                    {`${rank}`}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div style={{ fontSize: 40, fontWeight: 800 }}>{r.label}</div>
+                      <div style={{ fontSize: 34, fontWeight: 700, color: C.light }}>{fmt(r.hrs)}</div>
+                    </div>
+                    <div style={{ display: "flex", height: 12, borderRadius: 12, background: C.empty }}>
+                      <div
+                        style={{
+                          width: `${Math.max(2, Math.min(100, (r.hrs / 24) * 100))}%`,
+                          height: "100%",
+                          borderRadius: 12,
+                          background: `linear-gradient(90deg, ${C.lightBottom}, ${C.light})`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ display: "flex", marginTop: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+            <CardFooter question={footerQ} site={site} credit={credit} />
           </div>
         </div>
       </div>
@@ -149,7 +248,7 @@ export async function GET(req: Request) {
       width: W,
       height: H,
       fonts: fonts.length ? fonts : undefined,
-      headers: { "Cache-Control": "public, max-age=60" },
+      headers: { "Cache-Control": "public, max-age=300" },
     }
   );
 }

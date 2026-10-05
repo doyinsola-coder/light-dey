@@ -11,11 +11,10 @@ type Tab = "cities" | "areas";
 
 type Props = {
   city: string;
-  onBack: () => void;
   onOpenArea: (areaId: string) => void;
 };
 
-export function Leaderboard({ city, onBack, onOpenArea }: Props) {
+export function Leaderboard({ city, onOpenArea }: Props) {
   const [tab, setTab] = useState<Tab>("cities");
   const [cities, setCities] = useState<CityRow[] | null>(null);
   const [areas, setAreas] = useState<{ city: string; rows: AreaRow[] } | null>(null);
@@ -47,13 +46,7 @@ export function Leaderboard({ city, onBack, onOpenArea }: Props) {
       : "";
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5 py-6">
-      <header>
-        <button onClick={onBack} className="flex min-h-11 items-center gap-1 pr-3 text-[15px] font-medium">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-          Back
-        </button>
-      </header>
+    <main className="ld-view-in ld-safe-top ld-safe-bottom mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5">
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-bold uppercase tracking-[1.5px] text-(--muted)">Last 7 days</span>
@@ -76,7 +69,13 @@ export function Leaderboard({ city, onBack, onOpenArea }: Props) {
         ))}
       </div>
 
-      {!rows && <p className="text-(--muted)">Loading…</p>}
+      {!rows && (
+        <div className="flex flex-col gap-4" aria-label="Loading">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="ld-skeleton h-14 rounded-2xl" />
+          ))}
+        </div>
+      )}
 
       {rows && rows.length === 0 && (
         <div className="rounded-[22px] border-2 border-dashed border-(--line-strong) p-5">
@@ -88,30 +87,46 @@ export function Leaderboard({ city, onBack, onOpenArea }: Props) {
       )}
 
       {rows && rows.length > 0 && (
-        <ol className="flex flex-col gap-4">
+        <ol key={tab} className="flex flex-col gap-3">
           {rows.map((r, i) => {
+            const medal = ["🥇", "🥈", "🥉"][i];
             const body = (
               <>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-base font-bold">
-                    {i + 1}. {r.label}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-3 text-base font-bold">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] ${
+                        medal ? "bg-(--card) text-xl" : "bg-(--card) text-(--muted)"
+                      }`}
+                    >
+                      {medal ?? i + 1}
+                    </span>
+                    {r.label}
                   </span>
                   <span className="shrink-0 text-[15px] font-bold text-(--light-text)">{r.hrs} hrs/day</span>
                 </div>
-                <div className="h-3 overflow-hidden rounded-md bg-(--divider)">
-                  <div className="h-3 rounded-md bg-(--light)" style={{ width: `${Math.min(100, (r.hrs / 24) * 100)}%` }} />
+                <div className="h-2.5 overflow-hidden rounded-full bg-(--divider)">
+                  <div
+                    className="ld-grow-x h-2.5 rounded-full bg-[linear-gradient(90deg,#FFB300,#FFC531,#FFD866)]"
+                    style={{ width: `${Math.min(100, (r.hrs / 24) * 100)}%`, animationDelay: `${150 + i * 70}ms` }}
+                  />
                 </div>
                 {r.sub && <span className="text-[13px] text-(--muted)">{r.sub}</span>}
               </>
             );
             return (
-              <li key={r.id}>
+              <li key={r.id} className="ld-rise" style={{ animationDelay: `${i * 70}ms` }}>
                 {tab === "areas" ? (
-                  <button onClick={() => onOpenArea(r.id)} className="flex w-full flex-col gap-1.5 text-left">
+                  <button
+                    onClick={() => onOpenArea(r.id)}
+                    className={`flex w-full flex-col gap-2 rounded-[20px] border p-3.5 text-left ${i === 0 ? "border-(--light) bg-(--raised)" : "border-(--line) bg-(--raised)"}`}
+                  >
                     {body}
                   </button>
                 ) : (
-                  <div className="flex flex-col gap-1.5">{body}</div>
+                  <div className={`flex flex-col gap-2 rounded-[20px] border p-3.5 ${i === 0 ? "border-(--light) bg-(--raised)" : "border-(--line) bg-(--raised)"}`}>
+                    {body}
+                  </div>
                 )}
               </li>
             );

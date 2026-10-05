@@ -1,7 +1,8 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
-import { store } from "@/lib/helpers";
+import { buzz, store } from "@/lib/helpers";
 
 type Choice = "on" | "off";
 export type ReportOutcome = "ok" | "too_soon" | "error";
@@ -33,6 +34,45 @@ function Spinner() {
   );
 }
 
+function BulbIcon({ off }: { off?: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 18h6" /><path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2z" fill={off ? "none" : "currentColor"} fillOpacity="0.2" />
+      {off && <path d="M3 3l18 18" />}
+    </svg>
+  );
+}
+
+// Sparks that fly out of the button after a report goes through
+function Burst({ color }: { color: string }) {
+  return (
+    <span className="pointer-events-none absolute left-1/2 top-1/2 z-20" aria-hidden="true">
+      {Array.from({ length: 12 }, (_, i) => {
+        const a = (i / 12) * Math.PI * 2;
+        const r = 58 + (i % 3) * 14;
+        return (
+          <span
+            key={i}
+            className="ld-burst absolute left-0 top-0 rounded-full"
+            style={
+              {
+                width: i % 2 ? 7 : 10,
+                height: i % 2 ? 7 : 10,
+                background: color,
+                opacity: 0,
+                animationDelay: `${(i % 3) * 30}ms`,
+                "--dx": `${Math.round(Math.cos(a) * r)}px`,
+                "--dy": `${Math.round(Math.sin(a) * r * 0.7)}px`,
+              } as React.CSSProperties
+            }
+          />
+        );
+      })}
+    </span>
+  );
+}
+
 function Check() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -55,6 +95,7 @@ export function ReportButtons({ areaName, onReport }: Props) {
   const [sending, setSending] = useState<Choice | null>(null);
   const [justSent, setJustSent] = useState(0); // bumps to replay the "pop"
   const [note, setNote] = useState<string | null>(null);
+  const [ripple, setRipple] = useState<{ status: Choice; x: number; y: number; id: number } | null>(null);
 
   const remaining = last ? COOLDOWN_MS - (now - last.at) : 0;
   const cooling = remaining > 0;
@@ -75,11 +116,13 @@ export function ReportButtons({ areaName, onReport }: Props) {
 
   async function press(status: Choice) {
     if (sending || cooling) return;
+    buzz(12);
     setSending(status);
     setNote(null);
     const outcome = await onReport(status);
     setSending(null);
     if (outcome === "ok") {
+      buzz(status === "on" ? [20, 50, 20, 50, 40] : [30, 60, 30]);
       startCooldown(status);
       setJustSent((n) => n + 1);
       setNote("Thanks! Your neighbours can see it now.");
@@ -101,25 +144,39 @@ export function ReportButtons({ areaName, onReport }: Props) {
     const label = isLight ? "Light dey" : "No light";
 
     const base =
-      "relative flex min-h-16 flex-col items-center justify-center overflow-hidden rounded-[18px] px-3 text-[17px] font-bold";
+      "relative flex min-h-[84px] w-full flex-col items-center justify-center overflow-hidden rounded-[22px] px-3 text-[17px] font-bold";
     const look = chosen
       ? isLight
         ? "bg-(--light) text-(--ink) ring-2 ring-(--light) ring-offset-2 ring-offset-(--bg)"
         : "bg-(--text) text-(--bg) ring-2 ring-(--text) ring-offset-2 ring-offset-(--bg)"
       : isLight
-        ? "bg-(--light) text-(--ink)"
-        : "border border-(--line-strong) bg-(--raised)";
+        ? "bg-[linear-gradient(160deg,#FFD866,#FFC531_55%,#FFB300)] text-(--ink) shadow-[0_10px_28px_-12px_rgba(255,190,30,0.8)]"
+        : "border border-(--line-strong) bg-(--raised) shadow-[0_10px_28px_-16px_rgba(0,0,0,0.6)]";
 
     return (
+      <div key={status} className="relative">
       <button
         key={`${status}-${chosen ? justSent : 0}`}
         onClick={() => press(status)}
+        onPointerDown={(e) => {
+          if (cooling || sending) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          setRipple({ status, x: e.clientX - r.left, y: e.clientY - r.top, id: Date.now() });
+        }}
         disabled={cooling || sending !== null}
         aria-pressed={chosen}
         className={`${base} ${look} ${locked ? "opacity-35 saturate-0" : ""} ${chosen && justSent ? "ld-pop" : ""}`}
       >
+        {ripple?.status === status && (
+          <span
+            key={ripple.id}
+            className="ld-ripple pointer-events-none absolute h-[260px] w-[260px] rounded-full bg-current"
+            style={{ left: ripple.x, top: ripple.y, opacity: 0 }}
+            aria-hidden="true"
+          />
+        )}
         <span className="flex items-center gap-2">
-          {sending === status ? <Spinner /> : chosen ? <Check /> : null}
+          {sending === status ? <Spinner /> : chosen ? <Check /> : <BulbIcon off={!isLight} />}
           {sending === status ? "Sending…" : label}
         </span>
         {chosen && (
@@ -134,6 +191,8 @@ export function ReportButtons({ areaName, onReport }: Props) {
           </>
         )}
       </button>
+      {chosen && justSent > 0 && <Burst key={justSent} color={isLight ? "#FFC531" : "var(--off-dot)"} />}
+      </div>
     );
   }
 

@@ -33,3 +33,19 @@ export const store = {
 export function whatsappShare(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
+
+// A tiny buzz on Android phones (iPhones ignore it). Never throws.
+export function buzz(pattern: number | number[] = 10) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {}
+}
+
+// True when the person turned off animations in their phone settings
+export function prefersReducedMotion() {
+  try {
+    return matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
