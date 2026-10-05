@@ -14,8 +14,12 @@ export function HowItWorks() {
           We count the <strong className="text-(--text)">last hour</strong> of reports. The majority wins. If it&apos;s a tie,
           the newest report wins.
         </li>
+        <li>
+          You can only report for <strong className="text-(--text)">the area you&apos;re in right now</strong>. We check your
+          location when you tap, so nobody can report for a place they&apos;re not.
+        </li>
         <li>Each phone can report once every 15 minutes, so nobody can spam it.</li>
-        <li>No login. Nobody sees your name or exact location.</li>
+        <li>No login. Nobody sees your name, and your exact spot is never saved (only a rough ~1 km area).</li>
         <li>
           Big area? Light can be on in one street and off in the next. If reports keep disagreeing,{" "}
           <strong className="text-(--text)">add your street</strong> as its own area.

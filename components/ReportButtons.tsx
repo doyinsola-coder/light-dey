@@ -5,7 +5,14 @@ import { useEffect, useState } from "react";
 import { buzz, store } from "@/lib/helpers";
 
 type Choice = "on" | "off";
-export type ReportOutcome = "ok" | "too_soon" | "error";
+export type ReportOutcome =
+  | "ok"
+  | "too_soon"
+  | "too_far" // not in this area right now
+  | "location_denied" // location blocked for this site
+  | "location_off" // phone location off or timed out
+  | "location_rough" // location too fuzzy to trust
+  | "error";
 
 const COOLDOWN_MS = 15 * 60 * 1000; // must match the 15 minutes in report_status()
 const KEY = "lightdey_last_report";
@@ -131,7 +138,18 @@ export function ReportButtons({ areaName, onReport }: Props) {
       startCooldown(status);
       setNote("You reported recently, so wait for the timer.");
     } else {
-      setNote("Couldn't send that. Check your data and try again.");
+      buzz([60, 40, 60]);
+      setNote(
+        outcome === "too_far"
+          ? "That didn't go through. Pick where you are below 👇"
+          : outcome === "location_denied"
+            ? "Location is blocked for Light Dey. Allow it in your browser settings, then try again."
+            : outcome === "location_off"
+              ? "Turn on your phone's location to report. It's how we know you're really there."
+              : outcome === "location_rough"
+                ? "We couldn't get a clear location. Turn on GPS / high accuracy and try again."
+                : "Couldn't send that. Check your data and try again."
+      );
     }
   }
 
@@ -208,7 +226,10 @@ export function ReportButtons({ areaName, onReport }: Props) {
         {button("off")}
       </div>
       <p className="min-h-5 text-sm text-(--muted)" role="status" aria-live="polite">
-        {note ?? (cooling ? "One report per phone every 15 mins keeps things fair." : "")}
+        {note ??
+          (cooling
+            ? "One report per phone every 15 mins keeps things fair."
+            : `📍 We check that you're in ${areaName}. Your exact spot is never saved.`)}
       </p>
     </section>
   );

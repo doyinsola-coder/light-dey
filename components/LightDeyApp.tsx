@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, getDeviceId } from "@/lib/supabase";
 import type { AreaStatus, Status } from "@/lib/types";
 import { CITIES } from "@/lib/types";
-import { buzz, getApproxLocation, store, timeAgo, whatsappShare } from "@/lib/helpers";
+import { buzz, getLocation, store, timeAgo, whatsappShare } from "@/lib/helpers";
 import { Logo } from "@/components/Logo";
 import { StatusCard } from "@/components/StatusCard";
 import { MixedNotice } from "@/components/MixedNotice";
@@ -71,6 +71,10 @@ export default function LightDeyApp() {
 
   const endCelebrate = useCallback(() => setCelebrate(null), []);
 
+  // After a "you're not there" report: the areas we think you're actually in
+  type Near = { area_id: string; name: string; city: string; km: number };
+  const [wrongPlace, setWrongPlace] = useState<{ forArea: string; nearby: Near[] } | null>(null);
+
   const fetchAreas = useCallback(
     () => supabase.from("area_status").select("*").eq("city", city),
     [city]
@@ -104,23 +108,39 @@ export default function LightDeyApp() {
 
   const area = areas.find((a) => a.area_id === areaId) ?? null;
 
-  function pickArea(id: string) {
+  function pickArea(id: string, inCity: string = city) {
     areaIdRef.current = id;
     setAreaId(id);
     store.set("lightdey_area", id);
-    store.set("lightdey_city", city);
+    store.set("lightdey_city", inCity);
     setPicking(false);
     setView("home");
   }
 
-  // Add a new area (or get the existing one if the name is already there), then open it
+  // Add a new area (or get the existing one if the name is already there), then open it.
+  // You have to be in the city, and the new area is pinned where you are.
   async function addArea(name: string): Promise<string | null> {
+    const loc = await getLocation();
+    if (!loc.ok) {
+      return loc.reason === "denied"
+        ? "Location is blocked. Allow it in your browser settings to add an area."
+        : "Turn on your location to add an area. It gets pinned where you are.";
+    }
     const state = CITIES.find((c) => c.city === city)?.state ?? city;
-    const { data, error } = await supabase.rpc("add_area", { p_state: state, p_city: city, p_name: name });
+    const { data, error } = await supabase.rpc("add_area", {
+      p_state: state,
+      p_city: city,
+      p_name: name,
+      p_lat: loc.lat,
+      p_lng: loc.lng,
+    });
     if (error || !data) {
-      return error?.message.includes("invalid_name")
+      const m = error?.message ?? "";
+      return m.includes("invalid_name")
         ? "That name looks too short or too long."
-        : "Couldn't add that. Check your data and try again.";
+        : m.includes("too_far")
+          ? `You need to be in ${city} to add an area there.`
+          : "Couldn't add that. Check your data and try again.";
     }
     await load();
     pickArea(data as string);
@@ -134,18 +154,37 @@ export default function LightDeyApp() {
     setLoading(true);
   }
 
-  // Returns how it went; ReportButtons shows the result and the 15-minute timer
+  // Returns how it went; ReportButtons shows the result and the 15-minute timer.
+  // You can only report for the area you're physically in: the server checks your location.
   async function report(status: Exclude<Status, "unknown">): Promise<ReportOutcome> {
     if (!area) return "error";
-    const loc = await getApproxLocation();
+    setWrongPlace(null);
+    const loc = await getLocation();
+    if (!loc.ok) return loc.reason === "denied" ? "location_denied" : "location_off";
+
     const { data: lightCameBack, error } = await supabase.rpc("report_status", {
       p_area_id: area.area_id,
       p_status: status,
       p_device_id: getDeviceId(),
-      p_lat: loc?.lat ?? null,
-      p_lng: loc?.lng ?? null,
+      p_lat: loc.lat,
+      p_lng: loc.lng,
+      p_accuracy: loc.accuracy,
     });
-    if (error) return error.message.includes("too_soon") ? "too_soon" : "error";
+    if (error) {
+      const m = error.message;
+      if (m.includes("too_soon")) return "too_soon";
+      if (m.includes("location_rough")) return "location_rough";
+      if (m.includes("location_required")) return "location_off";
+      if (m.includes("too_far")) {
+        // Suggest the areas around where they actually are
+        const forArea = area.area_id;
+        supabase
+          .rpc("nearest_areas", { p_lat: loc.lat, p_lng: loc.lng })
+          .then(({ data }) => setWrongPlace({ forArea, nearby: (data as Near[] | null) ?? [] }));
+        return "too_far";
+      }
+      return "error";
+    }
 
     // This report brought light back: tell everyone following this area (the server double-checks)
     if (lightCameBack === true) {
@@ -159,7 +198,6 @@ export default function LightDeyApp() {
     setReported(true);
     return "ok";
   }
-
 
   const statusText = (n: AreaStatus) =>
     n.status === "on" ? (
@@ -338,6 +376,44 @@ export default function LightDeyApp() {
         <div {...rise(0)}>
           <ReportButtons areaName={area.name} onReport={report} />
         </div>
+
+        {wrongPlace?.forArea === area.area_id && (
+          <div className="ld-card-in flex flex-col gap-3 rounded-[22px] border border-(--light) bg-(--card) p-4" role="note">
+            <div className="flex flex-col gap-1">
+              <strong className="text-base">📍 You&apos;re not in {area.name} right now</strong>
+              <span className="text-[15px] text-(--soft)">
+                {wrongPlace.nearby.length > 0
+                  ? "Looks like you're around here. Report for where you are:"
+                  : "We don't have your area on the map yet. Add it and report from there."}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {wrongPlace.nearby.map((n) => (
+                <button
+                  key={n.area_id}
+                  onClick={() => {
+                    setWrongPlace(null);
+                    if (n.city !== city) changeCity(n.city);
+                    pickArea(n.area_id, n.city);
+                  }}
+                  className="min-h-11 rounded-full bg-(--light) px-4 text-[15px] font-bold text-(--ink)"
+                >
+                  {n.name}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setWrongPlace(null);
+                  setPrefill("");
+                  setPicking(true);
+                }}
+                className="min-h-11 rounded-full border border-(--line) bg-(--raised) px-4 text-[15px] font-bold"
+              >
+                {wrongPlace.nearby.length > 0 ? "Somewhere else" : "Add my area"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div {...rise(1)}>
           <NotifyButton areaId={area.area_id} areaName={area.name} />

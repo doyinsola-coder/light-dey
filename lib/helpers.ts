@@ -8,14 +8,18 @@ export function timeAgo(iso: string | null): string {
   return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
 }
 
-// Approximate location, only if the person allows it. Never blocks a report.
-export function getApproxLocation(): Promise<{ lat: number; lng: number } | null> {
+// The phone's location, for checking you're really in the area you report for.
+// We send it to the server once, it checks the distance, and only a rounded (~1 km) version is ever saved.
+export type Located = { ok: true; lat: number; lng: number; accuracy: number };
+export type NotLocated = { ok: false; reason: "denied" | "unavailable" };
+
+export function getLocation(): Promise<Located | NotLocated> {
   return new Promise((resolve) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) return resolve({ ok: false, reason: "unavailable" });
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { timeout: 5000, maximumAge: 10 * 60 * 1000 }
+      (pos) => resolve({ ok: true, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      (err) => resolve({ ok: false, reason: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable" }),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60 * 1000 }
     );
   });
 }
