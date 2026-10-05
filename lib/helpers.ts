@@ -11,17 +11,29 @@ export function timeAgo(iso: string | null): string {
 // The phone's location, for checking you're really in the area you report for.
 // We send it to the server once, it checks the distance, and only a rounded (~1 km) version is ever saved.
 export type Located = { ok: true; lat: number; lng: number; accuracy: number };
-export type NotLocated = { ok: false; reason: "denied" | "unavailable" };
+export type NotLocated = { ok: false; reason: "denied" | "unavailable" | "timeout" };
 
-export function getLocation(): Promise<Located | NotLocated> {
+function locateOnce(opts: PositionOptions): Promise<Located | NotLocated> {
   return new Promise((resolve) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return resolve({ ok: false, reason: "unavailable" });
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ ok: true, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      (err) => resolve({ ok: false, reason: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable" }),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60 * 1000 }
+      (err) =>
+        resolve({
+          ok: false,
+          reason: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable",
+        }),
+      opts
     );
   });
+}
+
+// Indoors, GPS often can't get a fix in time even with location ON.
+// So: try GPS first, and if it's slow, fall back to Wi-Fi/network location (good enough to confirm the area).
+export async function getLocation(): Promise<Located | NotLocated> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return { ok: false, reason: "unavailable" };
+  const gps = await locateOnce({ enableHighAccuracy: true, timeout: 8000, maximumAge: 2 * 60 * 1000 });
+  if (gps.ok || gps.reason === "denied") return gps;
+  return locateOnce({ enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 });
 }
 
 // Safe localStorage (private mode / blocked storage won't crash the app)

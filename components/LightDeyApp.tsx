@@ -124,7 +124,9 @@ export default function LightDeyApp() {
     if (!loc.ok) {
       return loc.reason === "denied"
         ? "Location is blocked. Allow it in your browser settings to add an area."
-        : "Turn on your location to add an area. It gets pinned where you are.";
+        : loc.reason === "timeout"
+          ? "Couldn't get your location in time. Move near a window and try again."
+          : "Turn on your location to add an area. It gets pinned where you are.";
     }
     const state = CITIES.find((c) => c.city === city)?.state ?? city;
     const { data, error } = await supabase.rpc("add_area", {
@@ -160,7 +162,7 @@ export default function LightDeyApp() {
     if (!area) return "error";
     setWrongPlace(null);
     const loc = await getLocation();
-    if (!loc.ok) return loc.reason === "denied" ? "location_denied" : "location_off";
+    if (!loc.ok) return loc.reason === "denied" ? "location_denied" : loc.reason === "timeout" ? "location_slow" : "location_off";
 
     const { data: lightCameBack, error } = await supabase.rpc("report_status", {
       p_area_id: area.area_id,

@@ -10,7 +10,8 @@ export type ReportOutcome =
   | "too_soon"
   | "too_far" // not in this area right now
   | "location_denied" // location blocked for this site
-  | "location_off" // phone location off or timed out
+  | "location_off" // phone location off
+  | "location_slow" // location is on but the phone couldn't get a fix in time
   | "location_rough" // location too fuzzy to trust
   | "error";
 
@@ -146,7 +147,9 @@ export function ReportButtons({ areaName, onReport }: Props) {
             ? "Location is blocked for Light Dey. Allow it in your browser settings, then try again."
             : outcome === "location_off"
               ? "Turn on your phone's location to report. It's how we know you're really there."
-              : outcome === "location_rough"
+              : outcome === "location_slow"
+                ? "Couldn't get your location in time. Move near a window or outside, then try again."
+                : outcome === "location_rough"
                 ? "We couldn't get a clear location. Turn on GPS / high accuracy and try again."
                 : "Couldn't send that. Check your data and try again."
       );
