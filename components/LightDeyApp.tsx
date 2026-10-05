@@ -4,7 +4,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, getDeviceId } from "@/lib/supabase";
 import type { AreaStatus, Status } from "@/lib/types";
-import { CITIES } from "@/lib/types";
+import { useCities, loadCities } from "@/lib/cities";
 import { buzz, getLocation, store, timeAgo, whatsappShare } from "@/lib/helpers";
 import { Logo } from "@/components/Logo";
 import { StatusCard } from "@/components/StatusCard";
@@ -18,6 +18,7 @@ import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
 import { ReportButtons, type ReportOutcome } from "@/components/ReportButtons";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { ComplaintBox } from "@/components/ComplaintBox";
 import { TabBar, type View } from "@/components/TabBar";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { LiveRow } from "@/components/LiveRow";
@@ -34,12 +35,13 @@ const MapView = dynamic(() => import("@/components/MapView"), {
 
 const REFRESH_MS = 20_000;
 
+// The last town this phone used (it may be a town someone added, so any saved name is fine)
 function savedCity(): string {
-  const c = store.get("lightdey_city");
-  return c && CITIES.some((x) => x.city === c) ? c : CITIES[0].city;
+  return store.get("lightdey_city") || "Ilorin";
 }
 
 export default function LightDeyApp() {
+  const cities = useCities();
   // Restore the last city and area this phone used
   const [city, setCity] = useState<string>(savedCity);
   const [areaId, setAreaId] = useState<string | null>(() => store.get("lightdey_area"));
@@ -128,7 +130,7 @@ export default function LightDeyApp() {
           ? "Couldn't get your location in time. Move near a window and try again."
           : "Turn on your location to add an area. It gets pinned where you are.";
     }
-    const state = CITIES.find((c) => c.city === city)?.state ?? city;
+    const state = cities.find((c) => c.city === city)?.state ?? city;
     const { data, error } = await supabase.rpc("add_area", {
       p_state: state,
       p_city: city,
@@ -146,6 +148,32 @@ export default function LightDeyApp() {
     }
     await load();
     pickArea(data as string);
+    return null;
+  }
+
+  // Add a town that isn't on the list (pinned where you are), then switch to it
+  async function addCity(name: string, state: string, lat: number, lng: number): Promise<string | null> {
+    const { data, error } = await supabase.rpc("add_city", {
+      p_name: name,
+      p_state: state,
+      p_lat: lat,
+      p_lng: lng,
+      p_device_id: getDeviceId(),
+    });
+    if (error || !data) {
+      const m = error?.message ?? "";
+      const near = m.match(/city_nearby:(.+)$/)?.[1];
+      return near
+        ? `You're close to ${near.trim()}, which is already on the list. Pick ${near.trim()} and add your area there.`
+        : m.includes("too_many")
+          ? "You already added a town today. Try again tomorrow."
+          : m.includes("invalid_name")
+            ? "That name looks too short or too long."
+            : "Couldn't add your town. Check your data and try again.";
+    }
+    await loadCities(true);
+    changeCity(data as string);
+    store.set("lightdey_city", data as string);
     return null;
   }
 
@@ -270,6 +298,7 @@ export default function LightDeyApp() {
           onCityChange={changeCity}
           onPick={pickArea}
           onAdd={addArea}
+          onAddCity={addCity}
           initialQuery={prefill}
           onClose={area ? () => setPicking(false) : undefined}
         />
@@ -433,7 +462,11 @@ export default function LightDeyApp() {
           <TodayBar areaId={area.area_id} areaName={area.name} refreshKey={area.last_report_at ?? ""} />
         </div>
 
-        <div {...rise(3)} >
+        <div {...rise(3)}>
+          <ComplaintBox areaId={area.area_id} areaName={area.name} />
+        </div>
+
+        <div {...rise(4)}>
           <div className="flex flex-col gap-1">
             <ShareCardButton imageUrl={`/api/card?area=${area.area_id}`} fileName={`light-dey-${area.name}`} text={shareText} />
             <a
@@ -483,6 +516,9 @@ export default function LightDeyApp() {
               <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" />
             </svg>
             Chat with me on WhatsApp
+          </a>
+          <a href="/privacy" className="mt-2 min-h-9 text-[13px] text-(--muted) underline underline-offset-4">
+            Privacy
           </a>
         </footer>
       </main>

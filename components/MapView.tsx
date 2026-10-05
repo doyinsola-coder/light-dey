@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { AreaStatus } from "@/lib/types";
-import { CITIES } from "@/lib/types";
+import { useCities } from "@/lib/cities";
 import { timeAgo } from "@/lib/helpers";
 
 const COLORS = {
@@ -20,7 +20,8 @@ type Props = {
 };
 
 export default function MapView({ city, areas, currentAreaId, onOpen }: Props) {
-  const center = CITIES.find((c) => c.city === city)?.center ?? CITIES[0].center;
+  const cities = useCities();
+  const center = cities.find((c) => c.city === city)?.center ?? [8.4966, 4.5421];
   const pinned = areas.filter((a) => a.lat !== null && a.lng !== null);
 
   return (

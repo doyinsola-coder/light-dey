@@ -34,6 +34,7 @@ export const CITIES = [
   { city: "Gombe", state: "Gombe", center: [10.2897, 11.1673] },
   { city: "Gusau", state: "Zamfara", center: [12.1628, 6.6614] },
   { city: "Ibadan", state: "Oyo", center: [7.3775, 3.947] },
+  { city: "Ifo", state: "Ogun", center: [6.8167, 3.195] },
   { city: "Ijebu-Ode", state: "Ogun", center: [6.8205, 3.9173] },
   { city: "Ilorin", state: "Kwara", center: [8.4966, 4.5421] },
   { city: "Jalingo", state: "Taraba", center: [8.8937, 11.36] },
