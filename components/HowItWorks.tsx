@@ -19,6 +19,10 @@ export function HowItWorks() {
           location when you tap, so nobody can report for a place they&apos;re not.
         </li>
         <li>Each phone can report once every 15 minutes, so nobody can spam it.</li>
+        <li>
+          Reporting late? After you tap, choose <strong className="text-(--text)">&quot;came earlier&quot;</strong> and we&apos;ll
+          count the hours from then. It can&apos;t go back past a neighbour&apos;s report.
+        </li>
         <li>No login. Nobody sees your name, and your exact spot is never saved (only a rough ~1 km area).</li>
         <li>
           Big area? Light can be on in one street and off in the next. If reports keep disagreeing,{" "}

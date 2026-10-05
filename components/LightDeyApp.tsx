@@ -201,6 +201,14 @@ export default function LightDeyApp() {
     return "ok";
   }
 
+  // "Light came earlier?" Moves the start of this phone's latest report back (the server caps it).
+  async function reportEarlier(minutes: number): Promise<number | null> {
+    const { data, error } = await supabase.rpc("set_report_since", { p_device_id: getDeviceId(), p_minutes: minutes });
+    if (error) return null;
+    await load();
+    return Number(data ?? 0);
+  }
+
   const statusText = (n: AreaStatus) =>
     n.status === "on" ? (
       <span className="rounded-full bg-(--light) px-2.5 py-1 text-[12px] font-bold text-(--ink)">Light dey</span>
@@ -376,7 +384,7 @@ export default function LightDeyApp() {
         />
 
         <div {...rise(0)}>
-          <ReportButtons areaName={area.name} onReport={report} />
+          <ReportButtons areaName={area.name} onReport={report} onEarlier={reportEarlier} />
         </div>
 
         {wrongPlace?.forArea === area.area_id && (

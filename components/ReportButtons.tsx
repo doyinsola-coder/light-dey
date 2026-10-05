@@ -92,18 +92,35 @@ function Check() {
 type Props = {
   areaName: string;
   onReport: (status: Choice) => Promise<ReportOutcome>;
+  // Optional "came earlier?" fix. Returns the minutes actually counted, or null if it failed.
+  onEarlier?: (minutes: number) => Promise<number | null>;
 };
+
+const EARLIER_WINDOW_MS = 60 * 1000; // the "came earlier?" chips show for 1 minute after a report
+const EARLIER = [
+  { mins: 30, label: "30 mins" },
+  { mins: 60, label: "1 hr" },
+  { mins: 120, label: "2 hrs+" },
+];
+
+function agoText(mins: number) {
+  if (mins < 60) return `${mins} mins`;
+  const h = Math.round(mins / 6) / 10;
+  return `${h} hr${h === 1 ? "" : "s"}`;
+}
 
 // The two report buttons. After a report, the chosen one stays lit with a tick and
 // a bar that drains over the 15-minute wait, then both unlock again.
 // The wait is per phone (not per area), same as the server rule, and survives reloads.
-export function ReportButtons({ areaName, onReport }: Props) {
+export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
   const [last, setLast] = useState<Last | null>(readLast);
   const [now, setNow] = useState(() => Date.now());
   const [sending, setSending] = useState<Choice | null>(null);
   const [justSent, setJustSent] = useState(0); // bumps to replay the "pop"
   const [note, setNote] = useState<string | null>(null);
   const [ripple, setRipple] = useState<{ status: Choice; x: number; y: number; id: number } | null>(null);
+  // After a report: offer "came earlier?" for a minute. picked = the chip being sent / sent.
+  const [earlier, setEarlier] = useState<{ status: Choice; at: number; picked: number | null } | null>(null);
 
   const remaining = last ? COOLDOWN_MS - (now - last.at) : 0;
   const cooling = remaining > 0;
@@ -134,6 +151,7 @@ export function ReportButtons({ areaName, onReport }: Props) {
       startCooldown(status);
       setJustSent((n) => n + 1);
       setNote("Thanks! Your neighbours can see it now.");
+      if (onEarlier) setEarlier({ status, at: Date.now(), picked: null });
     } else if (outcome === "too_soon") {
       // Reported from another tab or after clearing the app: wait it out from now
       startCooldown(status);
@@ -155,6 +173,29 @@ export function ReportButtons({ areaName, onReport }: Props) {
       );
     }
   }
+
+  async function pickEarlier(mins: number) {
+    if (!onEarlier || !earlier || earlier.picked !== null) return;
+    buzz(8);
+    setEarlier({ ...earlier, picked: mins });
+    const got = await onEarlier(mins);
+    if (got === null) {
+      setEarlier({ ...earlier, picked: null });
+      setNote("Couldn't save that. Try again.");
+      return;
+    }
+    const word = earlier.status === "on" ? "light" : "no light";
+    setNote(
+      got >= mins
+        ? `Got it ✅ Counted ${word} from about ${agoText(got)} ago.`
+        : got > 0
+          ? `Got it ✅ A neighbour reported otherwise ${agoText(got)} ago, so we counted from then.`
+          : "A neighbour reported otherwise just before you, so we kept it as just now."
+    );
+    setEarlier(null);
+  }
+
+  const showEarlier = earlier !== null && now - earlier.at < EARLIER_WINDOW_MS;
 
   const fraction = cooling ? remaining / COOLDOWN_MS : 0;
 
@@ -228,6 +269,25 @@ export function ReportButtons({ areaName, onReport }: Props) {
         {button("on")}
         {button("off")}
       </div>
+      {showEarlier && earlier && (
+        <div className="ld-card-in flex flex-wrap items-center gap-2" aria-label="When did it start?">
+          <span className="text-sm font-bold text-(--soft)">
+            {earlier.status === "on" ? "Light came earlier?" : "Light went earlier?"}
+          </span>
+          {EARLIER.map((e) => (
+            <button
+              key={e.mins}
+              onClick={() => pickEarlier(e.mins)}
+              disabled={earlier.picked !== null}
+              className={`min-h-9 rounded-full border px-3 text-[13px] font-bold disabled:opacity-60 ${
+                earlier.picked === e.mins ? "border-(--light) bg-(--light) text-(--ink)" : "border-(--line) bg-(--raised)"
+              }`}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="min-h-5 text-sm text-(--muted)" role="status" aria-live="polite">
         {note ??
           (cooling
