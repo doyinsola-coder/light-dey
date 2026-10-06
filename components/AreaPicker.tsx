@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AreaStatus } from "@/lib/types";
 import { POPULAR_CITIES } from "@/lib/types";
-import { useCities, nearestCity, CITY_RADIUS_KM } from "@/lib/cities";
+import { useCities, nearestCity } from "@/lib/cities";
 import { getLocation, buzz } from "@/lib/helpers";
 
 type Suggestion = { id: string; name: string; score: number };
@@ -100,17 +100,19 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
       setNotice(locationProblem(loc.reason));
       return;
     }
+    // Best answer: areas people already reported from near you. Otherwise, the town whose area you're in.
+    const { data } = await supabase.rpc("nearest_areas", { p_lat: loc.lat, p_lng: loc.lng });
+    const close = (data as Near[] | null) ?? [];
     const near = nearestCity(cities, loc.lat, loc.lng);
-    if (near.km > CITY_RADIUS_KM) {
-      setLocating(false);
+    const townName = close[0]?.city ?? (near.inside ? near.city.city : null);
+    setLocating(false);
+    if (!townName) {
       setTown({ name: "", state: near.city.state, far: true });
       setTownError(null);
       return;
     }
-    if (near.city.city !== city) onCityChange(near.city.city);
-    const { data } = await supabase.rpc("nearest_areas", { p_lat: loc.lat, p_lng: loc.lng });
-    setLocating(false);
-    setHere({ city: near.city.city, areas: ((data as Near[] | null) ?? []).filter((a) => a.city === near.city.city) });
+    if (townName !== city) onCityChange(townName);
+    setHere({ city: townName, areas: close.filter((a) => a.city === townName) });
   }
 
   async function addTown() {
