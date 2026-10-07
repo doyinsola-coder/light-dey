@@ -22,7 +22,10 @@ type Props = {
 export default function MapView({ city, areas, currentAreaId, onOpen }: Props) {
   const cities = useCities();
   const center = cities.find((c) => c.city === city)?.center ?? [8.4966, 4.5421];
-  const pinned = areas.filter((a) => a.lat !== null && a.lng !== null);
+  // Every ward now has a starting pin, so a big city would be hundreds of empty rings.
+  // Show areas with reports; show the quiet ones too only when there aren't many.
+  const withPin = areas.filter((a) => a.lat !== null && a.lng !== null);
+  const pinned = withPin.length > 40 ? withPin.filter((a) => a.status !== "unknown") : withPin;
 
   return (
     <div className="h-[58dvh] overflow-hidden rounded-[22px] border border-(--line)">

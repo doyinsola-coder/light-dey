@@ -23,6 +23,8 @@ type Props = {
   onClose?: () => void;
 };
 
+const SHOW_MAX = 30;
+
 function Chevron() {
   return (
     <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -71,15 +73,28 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
   const term = q.trim().toLowerCase();
   const key = `${city}|${term}`;
 
-  const list = useMemo(
-    () =>
-      areas
-        .filter((a) => a.name.toLowerCase().includes(term))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [areas, term]
-  );
+  // Big towns now have hundreds of areas (every ward is listed), so:
+  // no search → areas with reports first, then A–Z, first SHOW_MAX only; search ignores spaces and dashes ("oke odo" finds Oke-Odo)
+  const flat = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const matches = useMemo(() => {
+    const f = flat(term);
+    return areas
+      .filter((a) => a.name.toLowerCase().includes(term) || (f.length > 0 && flat(a.name).includes(f)))
+      .sort((a, b) => {
+        if (!term) {
+          const live = Number(b.status !== "unknown") - Number(a.status !== "unknown");
+          if (live) return live;
+        } else {
+          const starts = Number(flat(b.name).startsWith(f)) - Number(flat(a.name).startsWith(f));
+          if (starts) return starts;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [areas, term]);
+  const list = matches.slice(0, SHOW_MAX);
+  const hidden = matches.length - list.length;
 
-  const exact = areas.some((a) => a.name.toLowerCase() === term);
+  const exact = areas.some((a) => a.name.toLowerCase() === term || (term.length > 0 && flat(a.name) === flat(term)));
   const canAdd = term.length >= 2 && !exact;
 
   // Typo-tolerant matches from the database ("Okelel" → Okelele), 300ms after typing stops
@@ -374,6 +389,13 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
             </button>
           </li>
         ))}
+        {hidden > 0 && (
+          <li className="py-3 text-[14px] text-(--muted)">
+            {term
+              ? `${hidden} more match. Keep typing to narrow it down.`
+              : `${matches.length} areas in ${city}. Type your area above to find it.`}
+          </li>
+        )}
       </ul>
 
       {didYouMean.length > 0 && (
