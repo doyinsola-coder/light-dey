@@ -10,7 +10,15 @@ export type Confirm = (opts: { title: string; body?: string; action: string; dan
 export type Go = (tab: Tab) => void;
 export type Tab = "home" | "live" | "areas" | "announce" | "more" | "towns" | "phones" | "questions" | "download" | "battles";
 
-export const AdminCtx = createContext<{ call: Call; busy: boolean; toast: (text: string, ok?: boolean) => void; confirm: Confirm; go: Go } | null>(null);
+export const AdminCtx = createContext<{
+  call: Call;
+  busy: boolean;
+  toast: (text: string, ok?: boolean) => void;
+  confirm: Confirm;
+  go: Go;
+  openPhone: (deviceId: string) => void; // opens the phone profile sheet
+  changed: () => void; // reload the current screen after an action
+} | null>(null);
 export function useAdmin() {
   const c = useContext(AdminCtx);
   if (!c) throw new Error("useAdmin outside admin");
@@ -28,9 +36,16 @@ export const ERRORS: Record<string, string> = {
   same_area: "Pick a different area to merge into.",
   unknown_area: "Couldn't find that area.",
   invalid_size: "Size must be between 5 and 80 km.",
+  built_in_town: "That town is built into the app, so it can't be renamed or deleted here.",
+  town_busy: "One of those towns is already in a battle at that time.",
+  same_town: "Pick two different towns.",
+  not_finished: "That battle hasn't finished yet.",
+  unknown_battle: "Couldn't find that battle.",
 };
+// Known problems get a plain message; anything else shows the server's words so it can be fixed
 export const explain = (m: string) =>
-  ERRORS[Object.keys(ERRORS).find((k) => m.includes(k)) ?? ""] ?? "Couldn't do that. Check your data and try again.";
+  ERRORS[Object.keys(ERRORS).find((k) => m.includes(k)) ?? ""] ??
+  (/fetch|network/i.test(m) ? "No connection. Check your data and try again." : `Couldn't do that: ${m.slice(0, 120)}`);
 
 export const stateLabel = (st: string) => (st === "FCT" ? "FCT (Abuja)" : `${st} State`);
 export const phone = (id: string) => `Phone ${id.slice(0, 6).toUpperCase()}`;

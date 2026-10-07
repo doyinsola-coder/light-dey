@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { timeAgo } from "@/lib/helpers";
 import { useCities } from "@/lib/cities";
-import { Card, Empty, Segments, Skeleton, useAdmin, phone, field, btnSoft, btnDanger, IBan, ITrash, IFlag, ILive, ICheck } from "./ui";
+import { Card, Empty, Segments, Skeleton, useAdmin, phone, field, btnSoft, btnDanger, IBan, ITrash, IFlag, ILive, ICheck, IPhone } from "./ui";
 
 type FeedRow = { id: number; status: "on" | "off"; area_id: string; area: string; city: string; device_id: string; device_reports_24h: number; created_at: string; blocked: boolean };
 type Alert = { device_id: string; reports: number; areas: number; towns: number; flips: number; last_at: string; where_: string; reasons: string[]; blocked: boolean };
@@ -29,7 +29,7 @@ export function Live() {
 
 // Newest reports everywhere. Refreshes by itself every 20 seconds while you're looking.
 function Feed() {
-  const { call, confirm } = useAdmin();
+  const { call, confirm, openPhone } = useAdmin();
   const cities = useCities();
   const towns = useMemo(() => [...cities].sort((a, b) => a.city.localeCompare(b.city)), [cities]);
   const [town, setTown] = useState("");
@@ -88,7 +88,10 @@ function Feed() {
                   </span>
                 </button>
                 {open === r.id && (
-                  <div className="ld-card-in flex gap-2 px-1 pb-3">
+                  <div className="ld-card-in flex flex-wrap gap-2 px-1 pb-3">
+                    <button className={btnSoft} onClick={() => openPhone(r.device_id)}>
+                      <IPhone size={16} /> Phone details
+                    </button>
                     <button
                       className={btnSoft}
                       onClick={async () => {
@@ -147,7 +150,7 @@ function AlertPeek({ onCount, onOpen }: { onCount: (n: number) => void; onOpen: 
 
 // Phones that report too much, from too many places, or keep flipping light/no light
 function Alerts({ onCount }: { onCount: (n: number) => void }) {
-  const { call, confirm } = useAdmin();
+  const { call, confirm, openPhone } = useAdmin();
   const [rows, setRows] = useState<Alert[] | null>(null);
   const load = useCallback(() => {
     call<Alert[]>("admin_suspicious").then((d) => {
@@ -206,6 +209,26 @@ function Alerts({ onCount }: { onCount: (n: number) => void }) {
             ))}
           </div>
           <p className="text-[13px] leading-snug text-(--soft)">{a.where_}</p>
+          <div className="flex flex-wrap gap-2">
+            <button className={btnSoft} onClick={() => openPhone(a.device_id)}>
+              <IPhone size={16} /> Details
+            </button>
+            <button
+              className={btnSoft}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: `Pardon ${phone(a.device_id)}?`,
+                  body: a.blocked
+                    ? "It gets unblocked, stops showing in alerts, and always counts in battles."
+                    : "It stops showing in alerts and always counts in battles. Use this for honest people who just report a lot.",
+                  action: "Pardon",
+                });
+                if (ok && (await call("admin_pardon_device", { p_device_id: a.device_id, p_note: `Pardoned from alerts: ${a.reasons.join(", ")}` }, "Phone pardoned."))) load();
+              }}
+            >
+              <ICheck size={16} /> Pardon
+            </button>
+          </div>
         </Card>
       ))}
     </>

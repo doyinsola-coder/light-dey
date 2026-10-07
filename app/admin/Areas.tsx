@@ -100,7 +100,12 @@ function Find({ town }: { town: string }) {
 }
 
 function AreaTools({ area, onChanged }: { area: FoundArea; onChanged: () => void }) {
-  const { call, busy, confirm } = useAdmin();
+  const { call, busy, confirm, openPhone, toast } = useAdmin();
+  const cities = useCities();
+  const states = useMemo(() => [...new Set(cities.map((c) => c.state))].sort((x, y) => x.localeCompare(y)), [cities]);
+  const [moveState, setMoveState] = useState("");
+  const [moveTown, setMoveTown] = useState("");
+  const moveTowns = useMemo(() => cities.filter((c) => c.state === moveState && c.city !== area.city).sort((x, y) => x.city.localeCompare(y.city)), [cities, moveState, area.city]);
   const [name, setName] = useState(area.name);
   const [mergeQ, setMergeQ] = useState("");
   const [targets, setTargets] = useState<FoundArea[]>([]);
@@ -168,9 +173,9 @@ function AreaTools({ area, onChanged }: { area: FoundArea; onChanged: () => void
                 <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${r.status === "on" ? "bg-(--light)" : "bg-(--off-dot)"}`} />
                 <span className="flex flex-1 flex-col">
                   <span className="text-[14px] font-bold">{r.status === "on" ? "Light dey" : "No light"} · {timeAgo(r.created_at)}</span>
-                  <span className="text-[12px] text-(--muted)">
+                  <button onClick={() => openPhone(r.device_id)} className="self-start text-left text-[12px] text-(--muted) underline underline-offset-2">
                     {phone(r.device_id)} · {r.device_reports_today} in 24h{r.blocked ? " · blocked" : ""}
-                  </span>
+                  </button>
                 </span>
                 <button aria-label="Delete report" disabled={busy} onClick={async () => { if (await call("admin_delete_report", { p_report_id: r.id }, "Report deleted.")) loadReports(); }} className={`${btnSoft} w-10 px-0`}>
                   <ITrash size={16} />
@@ -194,6 +199,54 @@ function AreaTools({ area, onChanged }: { area: FoundArea; onChanged: () => void
         )}
       </div>
 
+      <div className="flex flex-col gap-2">
+        <span className={label}>Wrong status? Reset it</span>
+        <p className="-mt-1 text-[12px] leading-snug text-(--muted)">Deletes the area&apos;s recent reports so it shows &quot;no reports&quot; until someone reports again.</p>
+        <div className="flex flex-wrap gap-2">
+          {[1, 6, 24].map((h) => (
+            <button
+              key={h}
+              disabled={busy}
+              className={btnSoft}
+              onClick={async () => {
+                if (!(await confirm({ title: `Reset ${area.name}?`, body: `Deletes every report from the last ${h === 1 ? "hour" : `${h} hours`} in ${area.name}.`, action: "Reset", danger: true }))) return;
+                const n = await call<number>("admin_reset_area", { p_area_id: area.id, p_hours: h });
+                if (n !== null) {
+                  toast(`Deleted ${n} report${Number(n) === 1 ? "" : "s"}.`);
+                  onChanged();
+                }
+              }}
+            >
+              Last {h === 1 ? "hour" : `${h} hours`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className={label}>In the wrong town? Move it</span>
+        <div className="grid grid-cols-2 gap-2">
+          <select value={moveState} onChange={(e) => { setMoveState(e.target.value); setMoveTown(""); }} className={field} aria-label="State">
+            <option value="" disabled>State</option>
+            {states.map((st) => <option key={st} value={st}>{st}</option>)}
+          </select>
+          <select value={moveTown} onChange={(e) => setMoveTown(e.target.value)} disabled={!moveState} className={field} aria-label="Town">
+            <option value="" disabled>Town</option>
+            {moveTowns.map((c) => <option key={c.city} value={c.city}>{c.city}</option>)}
+          </select>
+        </div>
+        <button
+          disabled={busy || !moveTown}
+          className={btnSoft + " min-h-11"}
+          onClick={async () => {
+            if (!(await confirm({ title: `Move ${area.name} to ${moveTown}?`, body: "Its reports go with it. Its map pin resets until people report from there.", action: "Move" }))) return;
+            if (await call("admin_move_area", { p_area_id: area.id, p_city: moveTown }, `Moved to ${moveTown}.`)) onChanged();
+          }}
+        >
+          Move to {moveTown || "…"}
+        </button>
+      </div>
+
       <button
         disabled={busy}
         onClick={async () => {
@@ -208,13 +261,15 @@ function AreaTools({ area, onChanged }: { area: FoundArea; onChanged: () => void
   );
 }
 
-// Look-alike names in the same town ("Oke Odo" / "Oke-Odo"). Merge keeps the busier one.
+// Look-alike names in the same town ("Oke Odo" / "Oke-Odo").
+// Tap the name to keep, then Merge. "Not a duplicate" is remembered, so the pair never comes back.
 function Dupes({ town }: { town: string }) {
   const { call, busy, confirm } = useAdmin();
   const [rows, setRows] = useState<Dupe[] | null>(null);
   const [tick, setTick] = useState(0);
+  const [keepPick, setKeepPick] = useState<Record<string, string>>({}); // pair key → id to keep
   useEffect(() => {
-    call<Dupe[]>("admin_duplicates", { p_city: town || null }).then((d) => d && setRows(d));
+    call<Dupe[]>("admin_duplicates", { p_city: town || null }).then((d) => d && setRows(d.map((x) => ({ ...x, a_reports: Number(x.a_reports), b_reports: Number(x.b_reports) }))));
   }, [call, town, tick]);
 
   if (rows === null) return <Skeleton rows={4} />;
@@ -223,41 +278,59 @@ function Dupes({ town }: { town: string }) {
   return (
     <>
       <p className="text-[13px] leading-snug text-(--muted)">
-        Names that look alike in the same town. Merging keeps the one with more reports. Some are real different places
-        (&quot;Tanke&quot; and &quot;Tanke Oke-Odo&quot;), so only merge true duplicates.
+        Tap the name you want to keep, then Merge. The other one disappears and its reports move over. Some look-alikes
+        are real different places, so tap &quot;Not a duplicate&quot; for those and they won&apos;t show again.
       </p>
       {rows.map((d) => {
-        const keepA = d.a_reports >= d.b_reports;
-        const keep = keepA ? { id: d.a_id, name: d.a_name, n: d.a_reports } : { id: d.b_id, name: d.b_name, n: d.b_reports };
-        const drop = keepA ? { id: d.b_id, name: d.b_name, n: d.b_reports } : { id: d.a_id, name: d.a_name, n: d.a_reports };
+        const pairKey = `${d.a_id}-${d.b_id}`;
+        const A = { id: d.a_id, name: d.a_name, n: d.a_reports };
+        const B = { id: d.b_id, name: d.b_name, n: d.b_reports };
+        // Default keep: the one with more reports
+        const keepId = keepPick[pairKey] ?? (A.n >= B.n ? A.id : B.id);
+        const keep = keepId === A.id ? A : B;
+        const drop = keepId === A.id ? B : A;
+        const side = (x: typeof A) => {
+          const kept = x.id === keepId;
+          return (
+            <button
+              onClick={() => setKeepPick({ ...keepPick, [pairKey]: x.id })}
+              aria-pressed={kept}
+              className={`flex flex-col items-start rounded-2xl border-2 p-3 text-left transition-colors ${kept ? "border-(--light) bg-(--light)/10" : "border-(--line) bg-(--raised) opacity-70"}`}
+            >
+              <span className="font-bold">{x.name}</span>
+              <span className="text-[12px] text-(--muted)">{x.n} report{x.n === 1 ? "" : "s"}</span>
+              <span className={`mt-1 text-[11px] font-extrabold tracking-[1px] ${kept ? "text-(--light-text)" : "text-(--muted)"}`}>{kept ? "KEEP" : "REMOVE"}</span>
+            </button>
+          );
+        };
         return (
-          <Card key={`${d.a_id}-${d.b_id}`}>
+          <Card key={pairKey}>
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-bold uppercase tracking-[1px] text-(--muted)">{d.city}</span>
               <span className="text-[12px] text-(--muted)">{Math.round(d.likeness * 100)}% alike</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col rounded-2xl bg-(--raised) p-3">
-                <span className="font-bold">{drop.name}</span>
-                <span className="text-[12px] text-(--muted)">{drop.n} reports</span>
-              </div>
-              <div className="flex flex-col rounded-2xl border border-(--light) bg-(--light)/10 p-3">
-                <span className="font-bold">{keep.name}</span>
-                <span className="text-[12px] text-(--muted)">{keep.n} reports · keep</span>
-              </div>
+              {side(A)}
+              {side(B)}
             </div>
             <div className="flex gap-2">
               <button
                 disabled={busy}
                 className={`${btn} min-h-11 flex-1 text-[15px]`}
                 onClick={async () => {
-                  const ok = await confirm({ title: `Merge into ${keep.name}?`, body: `"${drop.name}" disappears and its reports move to "${keep.name}".`, action: "Merge" });
+                  const ok = await confirm({ title: `Keep ${keep.name}?`, body: `"${drop.name}" disappears and its ${drop.n} report${drop.n === 1 ? "" : "s"} move to "${keep.name}".`, action: "Merge" });
                   if (ok && (await call("admin_merge_area", { p_from: drop.id, p_into: keep.id }, `Merged into ${keep.name}.`))) setTick((n) => n + 1);
                 }}
               >
                 <IMerge size={17} /> Merge
               </button>
-              <button className={`${btnSoft} min-h-11`} onClick={() => setRows(rows.filter((r) => r !== d))}>
+              <button
+                disabled={busy}
+                className={`${btnSoft} min-h-11`}
+                onClick={async () => {
+                  if (await call("admin_not_duplicate", { p_a: d.a_id, p_b: d.b_id }, "Got it. Won't show again.")) setRows(rows.filter((r) => r !== d));
+                }}
+              >
                 Not a duplicate
               </button>
             </div>

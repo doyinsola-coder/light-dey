@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { timeAgo } from "@/lib/helpers";
 import { useCities, loadCities, type City } from "@/lib/cities";
 import {
-  Card, Empty, Skeleton, useAdmin, stateLabel, phone, field, btn, btnSoft, btnDanger,
-  ITown, IPhone, IQuestion, IDownload, ISwords, IChevron, IPlus, IBan, ICheck,
+  Card, Empty, Segments, Skeleton, useAdmin, stateLabel, phone, field, btn, btnSoft, btnDanger,
+  ITown, IPhone, IQuestion, IDownload, ISwords, IChevron, IPlus, ICheck, ITrash,
 } from "./ui";
 
 type PickPointProps = { towns: City[]; point: [number, number] | null; onPick: (lat: number, lng: number) => void };
@@ -20,7 +20,7 @@ export function More() {
   const items = [
     { id: "battles" as const, Icon: ISwords, title: "City battles", sub: "Run the official battle of the week, check scores, post the winner" },
     { id: "towns" as const, Icon: ITown, title: "Towns", sub: "Add a town on the map, change a town's size" },
-    { id: "phones" as const, Icon: IPhone, title: "Blocked phones", sub: "See and unblock phones, block by phone ID" },
+    { id: "phones" as const, Icon: IPhone, title: "Phones", sub: "Blocked and pardoned phones, look up any phone" },
     { id: "questions" as const, Icon: IQuestion, title: "Daily questions", sub: "Turn questions on or off, see how many answered" },
     { id: "download" as const, Icon: IDownload, title: "Download data", sub: "Spreadsheets for DisCos and partners" },
   ];
@@ -126,62 +126,142 @@ export function Towns() {
           </>
         )}
       </Card>
+
+      <TownEdit state={state} />
     </>
   );
 }
 
-// ─── Phones ──────────────────────────────────────────────────────────────
-type Blocked = { device_id: string; reason: string | null; created_at: string };
+// Rename a town or delete one nobody uses. The app's built-in towns can't change here.
+function TownEdit({ state }: { state: string }) {
+  const { call, busy, confirm } = useAdmin();
+  const cities = useCities();
+  const inState = useMemo(() => cities.filter((c) => c.state === state).sort((a, b) => a.city.localeCompare(b.city)), [cities, state]);
+  const [town, setTown] = useState("");
+  const [name, setName] = useState("");
+  return (
+    <Card title="Rename or delete a town" sub="For towns added after launch (like the LGA towns). A town can only be deleted if nobody has reported from it.">
+      <select value={town} onChange={(e) => { setTown(e.target.value); setName(e.target.value); }} disabled={!state} className={field}>
+        <option value="" disabled>{state ? "Choose a town" : "Choose a state above first"}</option>
+        {inState.map((c) => <option key={c.city} value={c.city}>{c.city}</option>)}
+      </select>
+      {town && (
+        <>
+          <div className="flex gap-2">
+            <input value={name} onChange={(e) => setName(e.target.value.slice(0, 40))} className={field} aria-label="New name" />
+            <button
+              disabled={busy || name.trim().length < 2 || name.trim() === town}
+              className={`${btnSoft} min-h-12 shrink-0`}
+              onClick={async () => {
+                if (!(await confirm({ title: `Rename ${town} to ${name.trim()}?`, body: "Its areas, notices and battles follow the new name.", action: "Rename" }))) return;
+                const done = await call<string>("admin_rename_city", { p_city: town, p_new: name }, `Renamed to ${name.trim()}.`);
+                if (done) {
+                  await loadCities(true);
+                  setTown(String(done));
+                }
+              }}
+            >
+              Rename
+            </button>
+          </div>
+          <button
+            disabled={busy}
+            className={`${btnDanger} self-start`}
+            onClick={async () => {
+              if (!(await confirm({ title: `Delete ${town}?`, body: "The town and all its areas are removed. Only works if nobody has reported from it.", action: "Delete town", danger: true }))) return;
+              if (await call("admin_delete_city", { p_city: town }, `${town} deleted.`)) {
+                await loadCities(true);
+                setTown("");
+              }
+            }}
+          >
+            <ITrash size={16} /> Delete town
+          </button>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── Phones: blocked and pardoned, tap any phone for its full profile ────
+type Listed = { device_id: string; reason?: string | null; note?: string | null; created_at: string };
 
 export function Phones() {
-  const { call, busy, confirm } = useAdmin();
-  const [list, setList] = useState<Blocked[] | null>(null);
+  const { call, busy, confirm, openPhone } = useAdmin();
+  const [view, setView] = useState<"blocked" | "pardoned">("blocked");
+  const [blocked, setBlocked] = useState<Listed[] | null>(null);
+  const [trusted, setTrusted] = useState<Listed[] | null>(null);
   const [id, setId] = useState("");
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    call<Blocked[]>("admin_blocked").then((d) => d && setList(d));
+    call<Listed[]>("admin_blocked").then((d) => d && setBlocked(d));
+    call<Listed[]>("admin_trusted").then((d) => d && setTrusted(d));
   }, [call, tick]);
+
+  const list = view === "blocked" ? blocked : trusted;
 
   return (
     <>
-      <Card title="Block by phone ID" sub="Most times you'll block from Live or Areas. Use this when someone sends you a phone ID from the privacy page.">
+      <Card title="Find a phone" sub="Paste a phone ID (people can copy theirs from the privacy page). Most times you'll open phones from Live, Alerts or an area's reports.">
         <input value={id} onChange={(e) => setId(e.target.value.trim())} placeholder="Phone ID" className={field} />
-        <button
-          disabled={busy || id.length < 16}
-          onClick={async () => {
-            const ok = await confirm({ title: "Block this phone?", body: "It can't report, complain or answer again. What it sent in the last 24 hours is deleted.", action: "Block phone", danger: true });
-            if (ok && (await call("admin_block_device", { p_device_id: id, p_reason: "Blocked by admin", p_wipe: true }, "Phone blocked."))) {
-              setId("");
-              setTick((n) => n + 1);
-            }
-          }}
-          className={`${btnDanger} min-h-12`}
-        >
-          <IBan size={17} /> Block phone
+        <button disabled={id.length < 16} onClick={() => openPhone(id)} className={btn}>
+          <IPhone size={18} /> Open phone
         </button>
       </Card>
 
-      <Card title="Blocked">
-        {list === null ? (
-          <Skeleton rows={2} />
-        ) : list.length === 0 ? (
-          <Empty icon={<IPhone size={28} />} text="Nobody is blocked." />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {list.map((b) => (
-              <li key={b.device_id} className="flex items-center gap-3 rounded-2xl bg-(--raised) p-3">
-                <span className="flex flex-1 flex-col">
-                  <span className="font-bold">{phone(b.device_id)}</span>
-                  <span className="text-[12px] leading-snug text-(--muted)">{b.reason ?? "No reason"} · {timeAgo(b.created_at)}</span>
+      <Segments
+        value={view}
+        onChange={setView}
+        items={[
+          { id: "blocked", label: `Blocked${blocked ? ` (${blocked.length})` : ""}` },
+          { id: "pardoned", label: `Pardoned${trusted ? ` (${trusted.length})` : ""}` },
+        ]}
+      />
+      <p className="-mt-2 text-[13px] leading-snug text-(--muted)">
+        {view === "blocked"
+          ? "Blocked phones can't report, complain or answer."
+          : "Pardoned phones are trusted: they never show in alerts and always count in battles."}
+      </p>
+
+      {list === null ? (
+        <Skeleton rows={2} />
+      ) : list.length === 0 ? (
+        <Card><Empty icon={<IPhone size={28} />} text={view === "blocked" ? "Nobody is blocked." : "Nobody is pardoned yet."} /></Card>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {list.map((b) => (
+            <li key={b.device_id} className="flex items-center gap-3 rounded-[20px] border border-(--line) bg-(--card) p-3.5">
+              <button onClick={() => openPhone(b.device_id)} className="flex flex-1 flex-col text-left">
+                <span className="font-bold">{phone(b.device_id)}</span>
+                <span className="text-[12px] leading-snug text-(--muted)">
+                  {(view === "blocked" ? b.reason : b.note) ?? "No note"} · {timeAgo(b.created_at)}
                 </span>
-                <button disabled={busy} onClick={async () => { if (await call("admin_unblock_device", { p_device_id: b.device_id }, "Unblocked.")) setTick((n) => n + 1); }} className={btnSoft}>
-                  Unblock
+              </button>
+              {view === "blocked" ? (
+                <div className="flex gap-1.5">
+                  <button disabled={busy} className={btnSoft} onClick={async () => { if (await call("admin_unblock_device", { p_device_id: b.device_id }, "Unblocked.")) setTick((n) => n + 1); }}>
+                    Unblock
+                  </button>
+                  <button
+                    disabled={busy}
+                    className={btnSoft}
+                    onClick={async () => {
+                      if (!(await confirm({ title: `Pardon ${phone(b.device_id)}?`, body: "It gets unblocked, stops showing in alerts, and always counts in battles.", action: "Pardon" }))) return;
+                      if (await call("admin_pardon_device", { p_device_id: b.device_id, p_note: "Pardoned after a block" }, "Phone pardoned.")) setTick((n) => n + 1);
+                    }}
+                  >
+                    Pardon
+                  </button>
+                </div>
+              ) : (
+                <button disabled={busy} className={btnSoft} onClick={async () => { if (await call("admin_unpardon_device", { p_device_id: b.device_id }, "Pardon removed.")) setTick((n) => n + 1); }}>
+                  Remove
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
 }

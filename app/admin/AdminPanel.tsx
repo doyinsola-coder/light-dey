@@ -14,6 +14,7 @@ import { Areas } from "./Areas";
 import { Announce } from "./Announce";
 import { More, Towns, Phones, Questions, Download } from "./More";
 import { Battles } from "./Battles";
+import { PhoneSheet } from "./Phone";
 
 const KEY_STORE = "lightdey_admin_key";
 
@@ -31,7 +32,7 @@ const TITLES: Record<Tab, string> = {
   announce: "Notices",
   more: "More",
   towns: "Towns",
-  phones: "Blocked phones",
+  phones: "Phones",
   questions: "Daily questions",
   battles: "City battles",
   download: "Download data",
@@ -47,6 +48,9 @@ export function AdminPanel() {
   const [refresh, setRefresh] = useState(0); // bump to reload the current screen
   const [toastMsg, setToastMsg] = useState<{ text: string; ok: boolean; n: number } | null>(null);
   const [ask, setAsk] = useState<(Parameters<Confirm>[0] & { resolve: (v: boolean) => void }) | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+  const openPhone = useCallback((id: string) => setPhone(id), []);
+  const changed = useCallback(() => setRefresh((n) => n + 1), []);
 
   const toast = useCallback((text: string, ok = true) => setToastMsg({ text, ok, n: Date.now() }), []);
   useEffect(() => {
@@ -121,7 +125,7 @@ export function AdminPanel() {
   };
 
   return (
-    <AdminCtx.Provider value={{ call, busy, toast, confirm, go }}>
+    <AdminCtx.Provider value={{ call, busy, toast, confirm, go, openPhone, changed }}>
       <div className="mx-auto flex min-h-dvh max-w-md flex-col">
         <header className="ld-safe-top sticky top-0 z-20 flex items-center gap-3 border-b border-(--line) bg-(--bg)/85 px-5 pb-3 backdrop-blur-md">
           {UNDER_MORE.includes(tab) ? (
@@ -179,8 +183,16 @@ export function AdminPanel() {
           </div>
         </nav>
 
+        {phone && (
+          <PhoneSheet
+            deviceId={phone}
+            onClose={() => setPhone(null)}
+            onChanged={() => setRefresh((n) => n + 1)}
+          />
+        )}
+
         {toastMsg && (
-          <div key={toastMsg.n} role="status" className="ld-card-in fixed inset-x-0 bottom-24 z-40 mx-auto flex w-[calc(100%-40px)] max-w-sm items-center gap-2 rounded-2xl bg-(--text) px-4 py-3 text-[15px] font-medium text-(--bg) shadow-lg">
+          <div key={toastMsg.n} role="status" className="ld-card-in fixed inset-x-0 bottom-24 z-[60] mx-auto flex w-[calc(100%-40px)] max-w-sm items-center gap-2 rounded-2xl bg-(--text) px-4 py-3 text-[15px] font-medium text-(--bg) shadow-lg">
             {toastMsg.ok && <ICheck size={18} />}
             {toastMsg.text}
           </div>
