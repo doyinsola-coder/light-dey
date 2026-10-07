@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "What Light Dey collects, why, and how to have it deleted.",
 };
 
-const UPDATED = "5 October 2026";
+const UPDATED = "7 October 2026";
 
 function H({ children }: { children: React.ReactNode }) {
   return <h2 className="mt-4 font-display text-[22px] font-extrabold tracking-tight">{children}</h2>;
@@ -50,6 +50,11 @@ export default function PrivacyPage() {
           Notes are never shown to other users.
         </li>
         <li>
+          <strong className="text-(--text)">Quick question answers</strong>, if you answer them (for example, what meter you use
+          or what band you&apos;re on). We check your location is in your area&apos;s town, but we don&apos;t save it with the
+          answer. Skipping is always fine.
+        </li>
+        <li>
           <strong className="text-(--text)">Alert settings.</strong> If you turn on &quot;notify me when light comes&quot;, we keep
           the technical address your browser gives us for sending notifications, and the areas you follow.
         </li>
@@ -62,20 +67,23 @@ export default function PrivacyPage() {
       <H>Why</H>
       <ul className="flex list-disc flex-col gap-2 pl-5">
         <li>To show live light status, today&apos;s hours, the map and the rankings.</li>
-        <li>To keep reports honest: one report per phone every 15 minutes, and only from people in the area.</li>
+        <li>
+          To keep reports honest: one report per phone every 15 minutes, and only from people in the area. A phone that keeps
+          sending fake reports can be blocked, and what it sent removed.
+        </li>
         <li>To send the alerts you asked for.</li>
         <li>
           To understand power supply and complaints across Nigeria, and share that as{" "}
           <strong className="text-(--text)">totals</strong> (see below).
         </li>
       </ul>
-      <p>By reporting or sending a complaint, you agree to us using your data this way. You can stop at any time.</p>
+      <p>By reporting, sending a complaint or answering a question, you agree to us using your data this way. You can stop at any time.</p>
 
       <H>Who we share it with</H>
       <ul className="flex list-disc flex-col gap-2 pl-5">
         <li>
-          <strong className="text-(--text)">Everyone using the app</strong> sees each area&apos;s status, report counts and
-          complaint totals. Never who reported.
+          <strong className="text-(--text)">Everyone using the app</strong> sees each area&apos;s status, report counts,
+          complaint totals and quick question totals. Never who reported or who answered.
         </li>
         <li>
           <strong className="text-(--text)">Electricity companies, regulators, researchers, media and partners</strong> may
@@ -92,7 +100,7 @@ export default function PrivacyPage() {
 
       <H>How long we keep it</H>
       <p>
-        We keep reports and complaints so the app can show history and rankings. If you ask, we delete everything linked to
+        We keep reports, complaints and answers so the app can show history and rankings. If you ask, we delete everything linked to
         your phone ID. Totals that were already calculated stay, because they can&apos;t be traced back to you.
       </p>
 
