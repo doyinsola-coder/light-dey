@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AreaStatus } from "@/lib/types";
-import { POPULAR_CITIES } from "@/lib/types";
 import { useCities, nearestCity } from "@/lib/cities";
 import { getLocation, buzz } from "@/lib/helpers";
 import { IconPin } from "@/components/Icons";
@@ -24,6 +23,14 @@ type Props = {
   onClose?: () => void;
 };
 
+function Chevron() {
+  return (
+    <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 // "okeogun road" → "Okeogun Road" (leaves "GRA" alone)
 function tidyName(raw: string) {
   return raw
@@ -37,6 +44,14 @@ function tidyName(raw: string) {
 export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, onAddCity, initialQuery = "", onClose }: Props) {
   const cities = useCities();
   const states = useMemo(() => [...new Set(cities.map((c) => c.state))].sort((a, b) => a.localeCompare(b)), [cities]);
+
+  // Step 1: state. Step 2: town in that state. Step 3: area in that town.
+  const [pickedState, setPickedState] = useState<string>(() => cities.find((c) => c.city === city)?.state ?? "");
+  const townsInState = useMemo(
+    () => cities.filter((c) => c.state === pickedState).sort((a, b) => a.city.localeCompare(b.city)),
+    [cities, pickedState]
+  );
+  const townPicked = townsInState.some((c) => c.city === city);
 
   // "Use my location"
   const [locating, setLocating] = useState(false);
@@ -112,6 +127,7 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
       setTownError(null);
       return;
     }
+    setPickedState(cities.find((c) => c.city === townName)?.state ?? near.city.state);
     if (townName !== city) onCityChange(townName);
     setHere({ city: townName, areas: close.filter((a) => a.city === townName) });
   }
@@ -132,6 +148,7 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
       setTownError(err);
       return;
     }
+    setPickedState(town.state);
     setTown(null);
     setHere(null);
     setNotice(`${tidyName(town.name)} has been added. Now add your area in it.`);
@@ -194,53 +211,74 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
         </div>
       )}
 
-      <label className="flex flex-col gap-2">
-        <span className="text-sm text-(--soft)">Or pick your town</span>
-        <span className="relative">
-          <select
-            value={city}
-            onChange={(e) => {
-              onCityChange(e.target.value);
-              setQ("");
-              setError(null);
-              setHere(null);
-            }}
-            className="min-h-12 w-full appearance-none rounded-2xl border border-(--line) bg-(--raised) px-4 pr-10 text-base font-bold outline-none focus:border-(--light)"
-          >
-            <optgroup label="Popular">
-              {POPULAR_CITIES.map((c) => (
-                <option key={`p-${c}`} value={c}>{c}</option>
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-2">
+          <span className="text-sm text-(--soft)">Or choose your state</span>
+          <span className="relative">
+            <select
+              value={pickedState}
+              onChange={(e) => {
+                setPickedState(e.target.value);
+                setQ("");
+                setError(null);
+                setHere(null);
+                setTown(null);
+              }}
+              className="min-h-12 w-full appearance-none rounded-2xl border border-(--line) bg-(--raised) px-4 pr-10 text-base font-bold outline-none focus:border-(--light)"
+            >
+              <option value="" disabled>
+                Choose your state
+              </option>
+              {states.map((st) => (
+                <option key={st} value={st}>
+                  {st === "FCT" ? "FCT (Abuja)" : `${st} State`}
+                </option>
               ))}
-            </optgroup>
-            {states.map((st) => (
-              <optgroup key={st} label={`${st} State`.replace("FCT State", "FCT (Abuja)")}>
-                {cities
-                  .filter((c) => c.state === st)
-                  .map((c) => (
-                    <option key={`${st}-${c.city}`} value={c.city}>
-                      {c.city}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
-          <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </span>
-        {!town && (
-          <button
-            type="button"
-            onClick={() => {
-              setTown({ name: "", state: cities.find((c) => c.city === city)?.state ?? states[0], far: false });
-              setTownError(null);
-            }}
-            className="self-start text-[14px] font-bold text-(--light-text) underline underline-offset-4"
-          >
-            My town isn&apos;t on the list
-          </button>
+            </select>
+            <Chevron />
+          </span>
+        </label>
+
+        {pickedState && (
+          <label className="ld-card-in flex flex-col gap-2">
+            <span className="text-sm text-(--soft)">Then your town</span>
+            <span className="relative">
+              <select
+                value={townPicked ? city : ""}
+                onChange={(e) => {
+                  onCityChange(e.target.value);
+                  setQ("");
+                  setError(null);
+                  setHere(null);
+                }}
+                className="min-h-12 w-full appearance-none rounded-2xl border border-(--line) bg-(--raised) px-4 pr-10 text-base font-bold outline-none focus:border-(--light)"
+              >
+                <option value="" disabled>
+                  Choose your town
+                </option>
+                {townsInState.map((c) => (
+                  <option key={c.city} value={c.city}>
+                    {c.city}
+                  </option>
+                ))}
+              </select>
+              <Chevron />
+            </span>
+            {!town && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTown({ name: "", state: pickedState, far: false });
+                  setTownError(null);
+                }}
+                className="self-start text-[14px] font-bold text-(--light-text) underline underline-offset-4"
+              >
+                Can&apos;t find your town? Add it
+              </button>
+            )}
+          </label>
         )}
-      </label>
+      </div>
 
       {town && (
         <div className="ld-card-in flex flex-col gap-3 rounded-[22px] bg-(--card) p-4">
@@ -291,6 +329,14 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
         </div>
       )}
 
+      {!townPicked ? (
+        <p className="rounded-[18px] border border-dashed border-(--line-strong) p-4 text-[15px] text-(--soft)">
+          {pickedState
+            ? `Choose your town in ${pickedState === "FCT" ? "the FCT" : pickedState + " State"} to see its areas.`
+            : "Choose your state, then your town, to see the areas in it."}
+        </p>
+      ) : (
+        <>
       <label className="flex flex-col gap-2">
         <span className="text-sm text-(--soft)">
           {initialQuery ? "Type your street after the area name, e.g. Tanke Oke-Odo" : "Search your area"}
@@ -361,6 +407,8 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
           </button>
           {error && <p className="text-sm text-(--muted)" role="status">{error}</p>}
         </div>
+      )}
+        </>
       )}
     </div>
   );
