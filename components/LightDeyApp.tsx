@@ -20,6 +20,7 @@ import { ReportButtons, type ReportOutcome } from "@/components/ReportButtons";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ComplaintBox } from "@/components/ComplaintBox";
 import { QuickQuestion } from "@/components/QuickQuestion";
+import { Announcement } from "@/components/Announcement";
 import { TabBar, type View } from "@/components/TabBar";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { LiveRow } from "@/components/LiveRow";
@@ -403,6 +404,8 @@ export default function LightDeyApp() {
         </header>
 
         <LiveRow city={area.city} updatedAt={updatedAt} />
+
+        <Announcement city={area.city} />
 
         {/* key: the card re-animates whenever the status changes */}
         <StatusCard key={`${area.area_id}-${area.status}`} area={area} />
