@@ -36,7 +36,8 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   loading: () => <div className="h-[58dvh] animate-pulse rounded-[22px] bg-(--card)" />,
 });
 
-const REFRESH_MS = 20_000;
+const REFRESH_MS = 30_000; // check for new reports this often while the app is on screen
+const FULL_MS = 10 * 60_000; // reload the whole area list (new areas, names) this often
 
 // The last town this phone used (it may be a town someone added, so any saved name is fine)
 function savedCity(): string {
@@ -81,10 +82,28 @@ export default function LightDeyApp() {
   type Near = { area_id: string; name: string; city: string; km: number };
   const [wrongPlace, setWrongPlace] = useState<{ forArea: string; nearby: Near[] } | null>(null);
 
-  const fetchAreas = useCallback(
-    () => supabase.from("area_status").select("*").eq("city", city),
-    [city]
-  );
+  // Big towns have hundreds of areas but only a few have reports in the last hour.
+  // So: the full list once (and every 10 minutes), and in between only the areas with recent reports.
+  // That keeps data use (and the server bill) small when lots of people have the app open.
+  const COLS = "area_id, state, city, name, lat, lng, status, on_count, off_count, last_report_at";
+  const fullRef = useRef<{ city: string; at: number; list: AreaStatus[] } | null>(null);
+  const fetchAreas = useCallback(async (): Promise<{ data: AreaStatus[] | null; error: unknown }> => {
+    const full = fullRef.current;
+    if (!full || full.city !== city || Date.now() - full.at > FULL_MS) {
+      const { data, error } = await supabase.from("area_status").select(COLS).eq("city", city);
+      if (!error && data) fullRef.current = { city, at: Date.now(), list: data as AreaStatus[] };
+      return { data: (data as AreaStatus[] | null) ?? null, error };
+    }
+    const { data, error } = await supabase.from("area_status").select(COLS).eq("city", city).not("last_report_at", "is", null);
+    if (error || !data) return { data: null, error };
+    const live = new Map((data as AreaStatus[]).map((a) => [a.area_id, a]));
+    const merged = full.list.map(
+      (a) => live.get(a.area_id) ?? { ...a, status: "unknown" as const, on_count: 0, off_count: 0, last_report_at: null }
+    );
+    // An area someone added in the last few minutes
+    for (const a of live.values()) if (!full.list.some((b) => b.area_id === a.area_id)) merged.push(a);
+    return { data: merged, error: null };
+  }, [city]);
 
   // Used after reporting, so the new status shows straight away
   const load = useCallback(async () => {
@@ -102,7 +121,8 @@ export default function LightDeyApp() {
         setLoading(false);
       });
     refresh();
-    const t = setInterval(refresh, REFRESH_MS);
+    // Don't use data while the phone is locked or the app is in the background
+    const t = setInterval(() => document.visibilityState === "visible" && refresh(), REFRESH_MS);
     const onVisible = () => document.visibilityState === "visible" && refresh();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -150,6 +170,7 @@ export default function LightDeyApp() {
           ? `You need to be in ${city} to add an area there.`
           : "Couldn't add that. Check your data and try again.";
     }
+    fullRef.current = null; // the new area has no reports yet, so reload the whole list
     await load();
     pickArea(data as string);
     return null;

@@ -233,7 +233,7 @@ export async function GET(req: Request) {
       width: W,
       height: H,
       fonts: fonts.length ? fonts : undefined,
-      headers: { "Cache-Control": "public, max-age=60" },
+      headers: { "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300" },
     }
   );
 }

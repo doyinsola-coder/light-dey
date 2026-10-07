@@ -5,10 +5,11 @@ import { supabase } from "@/lib/supabase";
 import { whatsappShare } from "@/lib/helpers";
 import { ShareCardButton } from "@/components/ShareCardButton";
 import { RankBadge } from "@/components/Icons";
+import { Battle } from "@/components/Battle";
 
 type CityRow = { city: string; hrs_per_day: number; areas: number };
 type AreaRow = { area_id: string; name: string; hrs_per_day: number; known_hours: number };
-type Tab = "cities" | "areas";
+type Tab = "cities" | "areas" | "battle";
 
 type Props = {
   city: string;
@@ -52,12 +53,12 @@ export function Leaderboard({ city, onOpenArea }: Props) {
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-bold uppercase tracking-[1.5px] text-(--muted)">Last 7 days</span>
         <h1 className="font-display text-[34px] font-extrabold leading-[1.02] tracking-tight">
-          {tab === "cities" ? "Which city get light pass?" : `Which part of ${city} get light pass?`}
+          {tab === "cities" ? "Which city get light pass?" : tab === "areas" ? `Which part of ${city} get light pass?` : "City battle"}
         </h1>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 rounded-full bg-(--card) p-1" role="tablist" aria-label="Leaderboard">
-        {(["cities", "areas"] as Tab[]).map((t) => (
+      <div className="grid grid-cols-3 gap-1.5 rounded-full bg-(--card) p-1" role="tablist" aria-label="Leaderboard">
+        {(["cities", "areas", "battle"] as Tab[]).map((t) => (
           <button
             key={t}
             role="tab"
@@ -65,12 +66,14 @@ export function Leaderboard({ city, onOpenArea }: Props) {
             onClick={() => setTab(t)}
             className={`min-h-11 rounded-full text-[15px] font-bold ${tab === t ? "bg-(--text) text-(--bg)" : "text-(--soft)"}`}
           >
-            {t === "cities" ? "Cities" : `${city} areas`}
+            <span className="block truncate px-2">{t === "cities" ? "Cities" : t === "areas" ? `${city} areas` : "Battle"}</span>
           </button>
         ))}
       </div>
 
-      {!rows && (
+      {tab === "battle" && <Battle city={city} />}
+
+      {tab !== "battle" && !rows && (
         <div className="flex flex-col gap-4" aria-label="Loading">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="ld-skeleton h-14 rounded-2xl" />
@@ -78,7 +81,7 @@ export function Leaderboard({ city, onOpenArea }: Props) {
         </div>
       )}
 
-      {rows && rows.length === 0 && (
+      {tab !== "battle" && rows && rows.length === 0 && (
         <div className="rounded-[22px] border-2 border-dashed border-(--line-strong) p-5">
           <p className="text-base font-bold">Not enough reports yet this week.</p>
           <p className="mt-1 text-[15px] text-(--soft)">
@@ -87,7 +90,7 @@ export function Leaderboard({ city, onOpenArea }: Props) {
         </div>
       )}
 
-      {rows && rows.length > 0 && (
+      {tab !== "battle" && rows && rows.length > 0 && (
         <ol key={tab} className="flex flex-col gap-3">
           {rows.map((r, i) => {
             const body = (
@@ -128,11 +131,11 @@ export function Leaderboard({ city, onOpenArea }: Props) {
         </ol>
       )}
 
-      <p className="text-[13px] text-(--muted)">
+      {tab !== "battle" && <p className="text-[13px] text-(--muted)">
         Hours of light per day, worked out from reports. One report counts for up to 6 hours until someone updates it.
-      </p>
+      </p>}
 
-      {shareText && (
+      {tab !== "battle" && shareText && (
         <div className="mt-auto flex flex-col gap-1">
           <ShareCardButton
             imageUrl={tab === "cities" ? "/api/leaderboard-card?type=cities" : `/api/leaderboard-card?type=areas&city=${encodeURIComponent(city)}`}
