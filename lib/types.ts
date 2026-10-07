@@ -55,6 +55,7 @@ export const CITIES = [
   { city: "Osogbo", state: "Osun", center: [7.7827, 4.5418] },
   { city: "Ota", state: "Ogun", center: [6.6804, 3.2356] },
   { city: "Owerri", state: "Imo", center: [5.4836, 7.0333] },
+  { city: "Oyo", state: "Oyo", center: [7.8526, 3.931] },
   { city: "Port Harcourt", state: "Rivers", center: [4.8156, 7.0498] },
   { city: "Sagamu", state: "Ogun", center: [6.8322, 3.6319] },
   { city: "Sokoto", state: "Sokoto", center: [13.0059, 5.2476] },
