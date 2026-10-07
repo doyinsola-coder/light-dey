@@ -6,7 +6,7 @@ import { timeAgo } from "@/lib/helpers";
 import { useCities, loadCities, type City } from "@/lib/cities";
 import {
   Card, Empty, Skeleton, useAdmin, stateLabel, phone, field, btn, btnSoft, btnDanger,
-  ITown, IPhone, IQuestion, IDownload, IChevron, IPlus, IBan, ICheck,
+  ITown, IPhone, IQuestion, IDownload, ISwords, IChevron, IPlus, IBan, ICheck,
 } from "./ui";
 
 type PickPointProps = { towns: City[]; point: [number, number] | null; onPick: (lat: number, lng: number) => void };
@@ -18,6 +18,7 @@ const PickPoint = dynamic<PickPointProps>(() => import("./PickPoint"), {
 export function More() {
   const { go } = useAdmin();
   const items = [
+    { id: "battles" as const, Icon: ISwords, title: "City battles", sub: "Run the official battle of the week, check scores, post the winner" },
     { id: "towns" as const, Icon: ITown, title: "Towns", sub: "Add a town on the map, change a town's size" },
     { id: "phones" as const, Icon: IPhone, title: "Blocked phones", sub: "See and unblock phones, block by phone ID" },
     { id: "questions" as const, Icon: IQuestion, title: "Daily questions", sub: "Turn questions on or off, see how many answered" },

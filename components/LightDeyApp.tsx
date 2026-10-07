@@ -21,6 +21,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { ComplaintBox } from "@/components/ComplaintBox";
 import { QuickQuestion } from "@/components/QuickQuestion";
 import { Announcement } from "@/components/Announcement";
+import { BattleBanner } from "@/components/BattleBanner";
 import { TabBar, type View } from "@/components/TabBar";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { LiveRow } from "@/components/LiveRow";
@@ -493,6 +494,10 @@ export default function LightDeyApp() {
 
         <div {...rise(1)}>
           <NotifyButton areaId={area.area_id} areaName={area.name} />
+        </div>
+
+        <div {...rise(2)}>
+          <BattleBanner city={area.city} />
         </div>
 
         <div {...rise(2)}>

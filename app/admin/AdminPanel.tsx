@@ -13,6 +13,7 @@ import { Live } from "./Live";
 import { Areas } from "./Areas";
 import { Announce } from "./Announce";
 import { More, Towns, Phones, Questions, Download } from "./More";
+import { Battles } from "./Battles";
 
 const KEY_STORE = "lightdey_admin_key";
 
@@ -32,9 +33,10 @@ const TITLES: Record<Tab, string> = {
   towns: "Towns",
   phones: "Blocked phones",
   questions: "Daily questions",
+  battles: "City battles",
   download: "Download data",
 };
-const UNDER_MORE: Tab[] = ["towns", "phones", "questions", "download"];
+const UNDER_MORE: Tab[] = ["battles", "towns", "phones", "questions", "download"];
 
 export function AdminPanel() {
   const [key, setKey] = useState("");
@@ -152,6 +154,7 @@ export function AdminPanel() {
           {tab === "phones" && <Phones />}
           {tab === "questions" && <Questions />}
           {tab === "download" && <Download />}
+          {tab === "battles" && <Battles />}
           <Link href="/" className="mt-2 self-center text-[13px] font-medium text-(--muted) underline underline-offset-4">
             Open the Light Dey app
           </Link>
