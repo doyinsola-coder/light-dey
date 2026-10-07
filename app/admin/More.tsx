@@ -185,33 +185,42 @@ export function Phones() {
   );
 }
 
-// ─── Questions ───────────────────────────────────────────────────────────
+// ─── Questions: switch on/off, and tap one to see how people answered ────
 type Question = { id: string; text: string; active: boolean; answers: number; skips: number };
+type Result = { answer: string; label: string; n: number };
+type TownRow = { state: string; city: string; total: number; top_label: string; top_n: number };
 
 export function Questions() {
   const { call, busy } = useAdmin();
   const [list, setList] = useState<Question[] | null>(null);
   const [tick, setTick] = useState(0);
+  const [openQ, setOpenQ] = useState<Question | null>(null);
   useEffect(() => {
     call<Question[]>("admin_questions").then((d) => d && setList(d));
   }, [call, tick]);
 
+  if (openQ) return <Answers q={openQ} onBack={() => setOpenQ(null)} />;
   if (!list) return <Skeleton rows={5} />;
   return (
     <>
-      <p className="text-[13px] leading-snug text-(--muted)">Each phone gets one question a day, from top to bottom. Turn one off to stop asking it.</p>
+      <p className="text-[13px] leading-snug text-(--muted)">
+        Each phone gets one question a day, from top to bottom. Tap a question to see the answers. Use the switch to stop asking it.
+      </p>
       <div className="flex flex-col overflow-hidden rounded-[24px] border border-(--line) bg-(--card)">
         {list.map((q) => {
           const total = Number(q.answers) + Number(q.skips);
           const rate = total ? Math.round((Number(q.answers) / total) * 100) : 0;
           return (
             <div key={q.id} className="flex items-center gap-3 border-b border-(--divider) p-4 last:border-0">
-              <span className="flex flex-1 flex-col gap-1">
+              <button onClick={() => setOpenQ(q)} className="flex flex-1 flex-col gap-1 text-left">
                 <span className={`text-[15px] font-bold leading-snug ${q.active ? "" : "text-(--muted)"}`}>{q.text}</span>
                 <span className="text-[12px] text-(--muted)">
                   {q.answers} answered · {q.skips} skipped{total ? ` · ${rate}% answer` : ""}
                 </span>
-              </span>
+                <span className="flex items-center gap-0.5 text-[13px] font-bold text-(--light-text)">
+                  See answers <IChevron size={14} />
+                </span>
+              </button>
               <button
                 role="switch"
                 aria-checked={q.active}
@@ -226,6 +235,110 @@ export function Questions() {
           );
         })}
       </div>
+    </>
+  );
+}
+
+function Answers({ q, onBack }: { q: Question; onBack: () => void }) {
+  const { call } = useAdmin();
+  const cities = useCities();
+  const states = useMemo(() => [...new Set(cities.map((c) => c.state))].sort((a, b) => a.localeCompare(b)), [cities]);
+  const [state, setState] = useState("");
+  const [town, setTown] = useState("");
+  const towns = useMemo(() => cities.filter((c) => c.state === state).sort((a, b) => a.city.localeCompare(b.city)), [cities, state]);
+  const [rows, setRows] = useState<{ key: string; data: Result[] } | null>(null);
+  const [where, setWhere] = useState<TownRow[] | null>(null);
+  const key = `${state}|${town}`;
+
+  useEffect(() => {
+    call<Result[]>("admin_question_results", { p_question: q.id, p_state: state || null, p_city: town || null }).then(
+      (d) => d && setRows({ key, data: d.map((r) => ({ ...r, n: Number(r.n) })) })
+    );
+  }, [call, q.id, state, town, key]);
+  useEffect(() => {
+    call<TownRow[]>("admin_question_towns", { p_question: q.id, p_state: state || null }).then((d) => d && setWhere(d));
+  }, [call, q.id, state]);
+
+  const data = rows?.key === key ? rows.data : null;
+  const total = data?.reduce((s, r) => s + r.n, 0) ?? 0;
+  const max = Math.max(1, ...(data ?? []).map((r) => r.n));
+  const place = town || (state ? stateLabel(state) : "All of Nigeria");
+
+  return (
+    <>
+      <button onClick={onBack} className="flex items-center gap-1 self-start text-[14px] font-bold text-(--light-text)">
+        <IChevron size={16} className="rotate-180" /> All questions
+      </button>
+      <h2 className="font-display text-[24px] font-extrabold leading-tight tracking-tight">{q.text}</h2>
+
+      <div className="grid grid-cols-2 gap-2">
+        <select value={state} onChange={(e) => { setState(e.target.value); setTown(""); }} className={field} aria-label="State">
+          <option value="">All states</option>
+          {states.map((s) => <option key={s} value={s}>{stateLabel(s)}</option>)}
+        </select>
+        <select value={town} onChange={(e) => setTown(e.target.value)} disabled={!state} className={field} aria-label="Town">
+          <option value="">{state ? "All towns" : "Town"}</option>
+          {towns.map((c) => <option key={c.city} value={c.city}>{c.city}</option>)}
+        </select>
+      </div>
+
+      <Card title={place} sub={data ? `${total} ${total === 1 ? "person" : "people"} answered` : undefined}>
+        {!data ? (
+          <Skeleton rows={4} />
+        ) : total === 0 ? (
+          <Empty icon={<IQuestion size={28} />} text="No answers here yet." />
+        ) : (
+          <ul className="flex flex-col gap-3.5">
+            {data.map((r) => {
+              const pct = Math.round((r.n / total) * 100);
+              const top = r.n === max;
+              return (
+                <li key={r.answer} className="flex flex-col gap-1.5">
+                  <span className="flex items-baseline justify-between gap-3 text-[15px]">
+                    <span className={top ? "font-bold" : ""}>{r.label}</span>
+                    <span className="shrink-0 text-(--muted)">
+                      <strong className="text-(--text)">{pct}%</strong> · {r.n}
+                    </span>
+                  </span>
+                  <span className="h-2.5 overflow-hidden rounded-full bg-(--raised)">
+                    <span className={`block h-full rounded-full ${top ? "bg-(--light)" : "bg-(--line-strong)"}`} style={{ width: `${(r.n / max) * 100}%` }} />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {!town && (
+        <Card title="By town" sub="Where the answers come from, and the most common answer in each town">
+          {where === null ? (
+            <Skeleton rows={3} />
+          ) : where.length === 0 ? (
+            <Empty icon={<ITown size={28} />} text="No answers yet." />
+          ) : (
+            <ul className="flex flex-col">
+              {where.map((w) => (
+                <li key={`${w.state}-${w.city}`}>
+                  <button
+                    onClick={() => { setState(w.state); setTown(w.city); }}
+                    className="flex w-full items-center gap-3 border-b border-(--divider) py-3 text-left last:border-0"
+                  >
+                    <span className="flex flex-1 flex-col">
+                      <span className="text-[15px] font-bold">{w.city}</span>
+                      <span className="text-[12px] text-(--muted)">
+                        Most said: {w.top_label} ({Math.round((Number(w.top_n) / Number(w.total)) * 100)}%)
+                      </span>
+                    </span>
+                    <span className="text-[13px] font-bold text-(--muted)">{w.total}</span>
+                    <IChevron size={16} className="text-(--muted)" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
     </>
   );
 }
