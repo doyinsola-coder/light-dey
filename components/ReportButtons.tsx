@@ -3,7 +3,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { buzz, store } from "@/lib/helpers";
-import { IconCheck as TickIcon, IconPin } from "@/components/Icons";
+import { IconCheck as TickIcon, IconPin, IconMessage, IconArrowRight } from "@/components/Icons";
 
 type Choice = "on" | "off";
 export type ReportOutcome =
@@ -95,6 +95,8 @@ type Props = {
   onReport: (status: Choice) => Promise<ReportOutcome>;
   // Optional "came earlier?" fix. Returns the minutes actually counted, or null if it failed.
   onEarlier?: (minutes: number) => Promise<number | null>;
+  // Shown right after a report: "Any complaint about light here?" opens the complaint box
+  onComplain?: () => void;
 };
 
 const EARLIER_WINDOW_MS = 60 * 1000; // the "came earlier?" chips show for 1 minute after a report
@@ -113,7 +115,7 @@ function agoText(mins: number) {
 // The two report buttons. After a report, the chosen one stays lit with a tick and
 // a bar that drains over the 15-minute wait, then both unlock again.
 // The wait is per phone (not per area), same as the server rule, and survives reloads.
-export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
+export function ReportButtons({ areaName, onReport, onEarlier, onComplain }: Props) {
   const [last, setLast] = useState<Last | null>(readLast);
   const [now, setNow] = useState(() => Date.now());
   const [sending, setSending] = useState<Choice | null>(null);
@@ -276,6 +278,21 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
         {button("on")}
         {button("off")}
       </div>
+      {onComplain && justSent > 0 && cooling && (
+        <button
+          onClick={() => {
+            buzz(8);
+            onComplain();
+          }}
+          className="ld-card-in flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-(--line) bg-(--raised) px-4 text-left text-[15px] font-bold"
+        >
+          <span className="flex items-center gap-2.5">
+            <IconMessage size={18} className="text-(--light-text)" />
+            Any complaint about light in {areaName}?
+          </span>
+          <IconArrowRight size={16} className="text-(--muted)" />
+        </button>
+      )}
       {showEarlier && earlier && (
         <div className="ld-card-in flex flex-wrap items-center gap-2" aria-label="When did it start?">
           <span className="text-sm font-bold text-(--soft)">

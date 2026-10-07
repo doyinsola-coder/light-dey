@@ -53,6 +53,7 @@ export default function LightDeyApp() {
   const [prefill, setPrefill] = useState("");
   const [view, setView] = useState<View>("home");
   const [updatedAt, setUpdatedAt] = useState(0);
+  const [complainSignal, setComplainSignal] = useState(0); // opens the complaint box from the prompt after reporting
   const [celebrate, setCelebrate] = useState<string | null>(null); // area name, while the "Light don come!" screen shows
 
   // What we saw last time, so we can spot "no light" turning into "light dey" while the app is open
@@ -414,7 +415,17 @@ export default function LightDeyApp() {
         />
 
         <div {...rise(0)}>
-          <ReportButtons areaName={area.name} onReport={report} onEarlier={reportEarlier} />
+          <ReportButtons
+            areaName={area.name}
+            onReport={report}
+            onEarlier={reportEarlier}
+            onComplain={() => {
+              setComplainSignal((n) => n + 1);
+              requestAnimationFrame(() =>
+                document.getElementById("complaints")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              );
+            }}
+          />
         </div>
 
         {wrongPlace?.forArea === area.area_id && (
@@ -464,7 +475,7 @@ export default function LightDeyApp() {
         </div>
 
         <div {...rise(3)}>
-          <ComplaintBox areaId={area.area_id} areaName={area.name} />
+          <ComplaintBox areaId={area.area_id} areaName={area.name} openSignal={complainSignal} />
         </div>
 
         <div {...rise(4)}>

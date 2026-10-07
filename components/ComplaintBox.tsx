@@ -35,8 +35,15 @@ type Count = { kind: string; people: number };
 
 // "Any complaint about light in Sango?" One tap on a suggestion, an optional 25-character note, send.
 // Shows what neighbours complained about this week (totals only, never the notes).
-export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: string }) {
-  const [open, setOpen] = useState(false);
+// openSignal: bump it from outside (e.g. the prompt after reporting) to open the box
+export function ComplaintBox({ areaId, areaName, openSignal = 0 }: { areaId: string; areaName: string; openSignal?: number }) {
+  const [userOpen, setUserOpen] = useState(false);
+  const [closedSignal, setClosedSignal] = useState(0);
+  const open = userOpen || (openSignal > 0 && openSignal !== closedSignal);
+  const setOpen = (next: boolean) => {
+    setUserOpen(next);
+    if (!next) setClosedSignal(openSignal);
+  };
   const [kind, setKind] = useState<Kind | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -106,10 +113,16 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-[24px] border border-(--line) bg-(--card) p-4.5" aria-label="Complaints">
+    <section
+      id="complaints"
+      className={`flex scroll-mt-24 flex-col gap-3 rounded-[24px] border bg-(--card) p-4.5 transition-colors ${
+        open ? "border-(--light)" : "border-(--line)"
+      }`}
+      aria-label="Complaints"
+    >
       <button
         onClick={() => {
-          setOpen((o) => !o);
+          setOpen(!open);
           setMsg(null);
         }}
         aria-expanded={open}
