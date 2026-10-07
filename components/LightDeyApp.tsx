@@ -26,6 +26,7 @@ import { Celebrate } from "@/components/Celebrate";
 import { CountUp } from "@/components/CountUp";
 import { MAKER, whatsappChatLink } from "@/lib/brand";
 import dynamic from "next/dynamic";
+import { IconPin, IconArrowRight } from "@/components/Icons";
 
 // The map library is big, so it only loads when someone opens the map
 const MapView = dynamic(() => import("@/components/MapView"), {
@@ -370,8 +371,8 @@ export default function LightDeyApp() {
 
     const shareText =
       area.status === "unknown"
-        ? `Does light dey ${area.name}? Report it here so we all know 💡 ${location.origin}`
-        : `${area.status === "on" ? "Light dey" : "No light"} for ${area.name} right now. Check your area 💡 ${location.origin}`;
+        ? `Does light dey ${area.name}? Report it here so we all know: ${location.origin}`
+        : `${area.status === "on" ? "Light dey" : "No light"} for ${area.name} right now. Check your area: ${location.origin}`;
 
     // Sections slide up one after another when the screen opens
     const rise = (i: number) => ({ className: "ld-rise", style: { animationDelay: `${80 + i * 70}ms` } });
@@ -419,7 +420,7 @@ export default function LightDeyApp() {
         {wrongPlace?.forArea === area.area_id && (
           <div className="ld-card-in flex flex-col gap-3 rounded-[22px] border border-(--light) bg-(--card) p-4" role="note">
             <div className="flex flex-col gap-1">
-              <strong className="text-base">📍 You&apos;re not in {area.name} right now</strong>
+              <strong className="flex items-center gap-2 text-base"><IconPin size={18} className="text-(--light-text)" />You&apos;re not in {area.name} right now</strong>
               <span className="text-[15px] text-(--soft)">
                 {wrongPlace.nearby.length > 0
                   ? "Looks like you're around here. Report for where you are:"
@@ -484,12 +485,12 @@ export default function LightDeyApp() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-base font-bold">Other areas in {area.city}</h2>
             <button onClick={() => setView("map")} className="min-h-9 text-[13px] font-bold text-(--light-text)">
-              See map →
+              <span className="flex items-center gap-1">See map <IconArrowRight size={14} /></span>
             </button>
           </div>
           {nearby.length === 0 ? (
             <p className="rounded-[18px] border border-dashed border-(--line-strong) p-4 text-sm text-(--muted)">
-              No other reports in {area.city} in the last hour. Share the app so your neighbours join 👀
+              No other reports in {area.city} in the last hour. Share the app so your neighbours can join.
             </p>
           ) : (
             <ul className="flex flex-col gap-2">{nearby.map(areaRow)}</ul>
@@ -505,7 +506,7 @@ export default function LightDeyApp() {
               {MAKER.name} ({MAKER.handle})
             </a>
           </span>
-          <span>Follow for what I build next 👀</span>
+          <span>Follow for what I build next</span>
           <a
             href={whatsappChatLink()}
             target="_blank"

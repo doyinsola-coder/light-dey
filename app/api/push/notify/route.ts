@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     .eq("area_id", areaId);
 
   const payload = JSON.stringify({
-    title: "Light don come! 💡",
+    title: "Light don come!",
     body: `Neighbours say light dey for ${area.name} now.`,
     tag: `light-${areaId}`,
     url: "/",

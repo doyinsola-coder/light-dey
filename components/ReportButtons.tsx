@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { buzz, store } from "@/lib/helpers";
+import { IconCheck as TickIcon, IconPin } from "@/components/Icons";
 
 type Choice = "on" | "off";
 export type ReportOutcome =
@@ -117,7 +118,12 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [sending, setSending] = useState<Choice | null>(null);
   const [justSent, setJustSent] = useState(0); // bumps to replay the "pop"
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNoteText] = useState<string | null>(null);
+  const [noteOk, setNoteOk] = useState(false); // green tick for good news
+  const setNote = (text: string | null, ok = false) => {
+    setNoteText(text);
+    setNoteOk(ok);
+  };
   const [ripple, setRipple] = useState<{ status: Choice; x: number; y: number; id: number } | null>(null);
   // After a report: offer "came earlier?" for a minute. picked = the chip being sent / sent.
   const [earlier, setEarlier] = useState<{ status: Choice; at: number; picked: number | null } | null>(null);
@@ -150,7 +156,7 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
       buzz(status === "on" ? [20, 50, 20, 50, 40] : [30, 60, 30]);
       startCooldown(status);
       setJustSent((n) => n + 1);
-      setNote("Thanks! Your neighbours can see it now.");
+      setNote("Thanks! Your neighbours can see it now.", true);
       if (onEarlier) setEarlier({ status, at: Date.now(), picked: null });
     } else if (outcome === "too_soon") {
       // Reported from another tab or after clearing the app: wait it out from now
@@ -160,7 +166,7 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
       buzz([60, 40, 60]);
       setNote(
         outcome === "too_far"
-          ? "That didn't go through. Pick where you are below 👇"
+          ? "That didn't go through. Pick where you are below."
           : outcome === "location_denied"
             ? "Location is blocked for Light Dey. Allow it in your browser settings, then try again."
             : outcome === "location_off"
@@ -187,10 +193,11 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
     const word = earlier.status === "on" ? "light" : "no light";
     setNote(
       got >= mins
-        ? `Got it ✅ Counted ${word} from about ${agoText(got)} ago.`
+        ? `Got it. Counted ${word} from about ${agoText(got)} ago.`
         : got > 0
-          ? `Got it ✅ A neighbour reported otherwise ${agoText(got)} ago, so we counted from then.`
-          : "A neighbour reported otherwise just before you, so we kept it as just now."
+          ? `Got it. A neighbour reported otherwise ${agoText(got)} ago, so we counted from then.`
+          : "A neighbour reported otherwise just before you, so we kept it as just now.",
+      got > 0
     );
     setEarlier(null);
   }
@@ -288,11 +295,24 @@ export function ReportButtons({ areaName, onReport, onEarlier }: Props) {
           ))}
         </div>
       )}
-      <p className="min-h-5 text-sm text-(--muted)" role="status" aria-live="polite">
-        {note ??
-          (cooling
-            ? "One report per phone every 15 mins keeps things fair."
-            : `📍 We check that you're in ${areaName}. Your exact spot is never saved.`)}
+      <p
+        className={`flex min-h-5 items-center gap-1.5 text-sm ${noteOk ? "font-bold text-(--light-text)" : "text-(--muted)"}`}
+        role="status"
+        aria-live="polite"
+      >
+        {note ? (
+          <>
+            {noteOk && <TickIcon size={16} />}
+            {note}
+          </>
+        ) : cooling ? (
+          "One report per phone every 15 mins keeps things fair."
+        ) : (
+          <>
+            <IconPin size={14} />
+            We check that you&apos;re in {areaName}. Your exact spot is never saved.
+          </>
+        )}
       </p>
     </section>
   );

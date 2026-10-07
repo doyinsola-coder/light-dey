@@ -52,7 +52,7 @@ export function Celebrate({ areaName, onDone }: { areaName: string; onDone: () =
           <Bulb mode="on" size={150} />
         </div>
         <div className="ld-zoom-pop font-display text-[46px] font-extrabold leading-none tracking-tight" style={{ animationDelay: "0.12s" }}>
-          Light don come! 🎉
+          Light don come!
         </div>
         <div className="ld-zoom-pop text-lg font-bold" style={{ animationDelay: "0.2s" }}>
           {areaName} is back on

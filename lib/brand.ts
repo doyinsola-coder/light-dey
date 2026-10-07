@@ -7,6 +7,6 @@ export const MAKER = {
   whatsapp: "2349035667678",
 };
 
-export function whatsappChatLink(text = "Hi Doyinsola, I'm messaging from Light Dey 💡") {
+export function whatsappChatLink(text = "Hi Doyinsola, I'm messaging from Light Dey") {
   return `https://wa.me/${MAKER.whatsapp}?text=${encodeURIComponent(text)}`;
 }

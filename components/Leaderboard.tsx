@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { whatsappShare } from "@/lib/helpers";
 import { ShareCardButton } from "@/components/ShareCardButton";
+import { RankBadge } from "@/components/Icons";
 
 type CityRow = { city: string; hrs_per_day: number; areas: number };
 type AreaRow = { area_id: string; name: string; hrs_per_day: number; known_hours: number };
@@ -40,9 +41,9 @@ export function Leaderboard({ city, onOpenArea }: Props) {
 
   const shareText =
     rows && rows.length > 0
-      ? `Which ${tab === "cities" ? "city" : `${city} area`} get light pass this week? ⚡\n\n` +
+      ? `Which ${tab === "cities" ? "city" : `${city} area`} get light pass this week?\n\n` +
         rows.slice(0, 5).map((r, i) => `${i + 1}. ${r.label}: ${r.hrs} hrs/day`).join("\n") +
-        `\n\nAdd your area 💡 ${location.origin}`
+        `\n\nAdd your area: ${location.origin}`
       : "";
 
   return (
@@ -89,18 +90,11 @@ export function Leaderboard({ city, onOpenArea }: Props) {
       {rows && rows.length > 0 && (
         <ol key={tab} className="flex flex-col gap-3">
           {rows.map((r, i) => {
-            const medal = ["🥇", "🥈", "🥉"][i];
             const body = (
               <>
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-3 text-base font-bold">
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] ${
-                        medal ? "bg-(--card) text-xl" : "bg-(--card) text-(--muted)"
-                      }`}
-                    >
-                      {medal ?? i + 1}
-                    </span>
+                    <RankBadge rank={i + 1} />
                     {r.label}
                   </span>
                   <span className="shrink-0 text-[15px] font-bold text-(--light-text)">{r.hrs} hrs/day</span>

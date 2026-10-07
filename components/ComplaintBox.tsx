@@ -3,16 +3,28 @@
 import { useEffect, useState } from "react";
 import { supabase, getDeviceId } from "@/lib/supabase";
 import { buzz, getLocation } from "@/lib/helpers";
+import {
+  IconLowCurrent,
+  IconBlinking,
+  IconTransformer,
+  IconWarning,
+  IconReceipt,
+  IconKeypad,
+  IconUnplug,
+  IconMessage,
+  IconCheck,
+  IconPin,
+} from "@/components/Icons";
 
 const KINDS = [
-  { id: "low_current", label: "Low current", emoji: "🔅" },
-  { id: "blinking", label: "Keeps blinking", emoji: "⚡" },
-  { id: "transformer", label: "Transformer", emoji: "🔧" },
-  { id: "wire_pole", label: "Wire / pole down", emoji: "⚠️" },
-  { id: "estimated_bill", label: "Estimated bill", emoji: "🧾" },
-  { id: "token", label: "Token issue", emoji: "🔢" },
-  { id: "disconnected", label: "Disconnected", emoji: "✂️" },
-  { id: "other", label: "Other", emoji: "💬" },
+  { id: "low_current", label: "Low current", Icon: IconLowCurrent },
+  { id: "blinking", label: "Keeps blinking", Icon: IconBlinking },
+  { id: "transformer", label: "Transformer", Icon: IconTransformer },
+  { id: "wire_pole", label: "Wire / pole down", Icon: IconWarning },
+  { id: "estimated_bill", label: "Estimated bill", Icon: IconReceipt },
+  { id: "token", label: "Token issue", Icon: IconKeypad },
+  { id: "disconnected", label: "Disconnected", Icon: IconUnplug },
+  { id: "other", label: "Other", Icon: IconMessage },
 ] as const;
 type Kind = (typeof KINDS)[number]["id"];
 
@@ -28,7 +40,7 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
   const [kind, setKind] = useState<Kind | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ areaId: string; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ areaId: string; text: string; ok?: boolean } | null>(null);
   const [counts, setCounts] = useState<{ areaId: string; rows: Count[] } | null>(null);
   const [refresh, setRefresh] = useState(0);
 
@@ -43,7 +55,7 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
   }, [areaId, refresh]);
 
   const rows = counts?.areaId === areaId ? counts.rows : [];
-  const message = msg?.areaId === areaId ? msg.text : null;
+  const message = msg?.areaId === areaId ? msg : null;
 
   async function send() {
     if (!kind) return;
@@ -78,15 +90,15 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
         text: m.includes("too_far")
           ? `You need to be in ${areaName} to complain about it.`
           : m.includes("already_sent")
-            ? "You already sent this one recently. Thanks 🙏"
+            ? "You already sent this one recently. Thanks."
             : m.includes("too_many")
-              ? "That's enough complaints for today. Thanks for speaking up 🙏"
+              ? "That's enough complaints for today. Thanks for speaking up."
               : "Couldn't send that. Check your data and try again.",
       });
       return;
     }
     buzz([20, 40, 20]);
-    setMsg({ areaId, text: "Noted ✅ Thanks for speaking up for your area." });
+    setMsg({ areaId, text: "Noted. Thanks for speaking up for your area.", ok: true });
     setKind(null);
     setNote("");
     setOpen(false);
@@ -138,7 +150,10 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
                   kind === k.id ? "border-(--light) bg-(--light) text-(--ink)" : "border-(--line) bg-(--raised)"
                 }`}
               >
-                {k.emoji} {k.label}
+                <span className="flex items-center gap-1.5">
+                  <k.Icon size={16} />
+                  {k.label}
+                </span>
               </button>
             ))}
           </div>
@@ -166,13 +181,17 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
           >
             {busy ? "Sending…" : kind ? `Send: ${label(kind)}` : "Pick a complaint above"}
           </button>
-          <p className="text-[12px] text-(--muted)">📍 We check you&apos;re in {areaName}. Your name is never shown.</p>
+          <p className="flex items-center gap-1.5 text-[12px] text-(--muted)">
+            <IconPin size={14} />
+            We check you&apos;re in {areaName}. Your name is never shown.
+          </p>
         </div>
       )}
 
       {message && (
-        <p className="text-sm text-(--soft)" role="status">
-          {message}
+        <p className={`flex items-center gap-1.5 text-sm ${message.ok ? "font-bold text-(--light-text)" : "text-(--soft)"}`} role="status">
+          {message.ok && <IconCheck size={16} />}
+          {message.text}
         </p>
       )}
 
@@ -182,8 +201,12 @@ export function ComplaintBox({ areaId, areaName }: { areaId: string; areaName: s
           <ul className="flex flex-col gap-1.5">
             {rows.slice(0, 4).map((r) => (
               <li key={r.kind} className="flex items-center justify-between text-[15px]">
-                <span>
-                  {KINDS.find((k) => k.id === r.kind)?.emoji} {label(r.kind)}
+                <span className="flex items-center gap-2">
+                  {(() => {
+                    const K = KINDS.find((k) => k.id === r.kind)?.Icon ?? IconMessage;
+                    return <K size={16} className="text-(--muted)" />;
+                  })()}
+                  {label(r.kind)}
                 </span>
                 <span className="font-bold text-(--light-text)">
                   {r.people} {r.people === 1 ? "person" : "people"}

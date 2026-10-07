@@ -6,6 +6,7 @@ import type { AreaStatus } from "@/lib/types";
 import { POPULAR_CITIES } from "@/lib/types";
 import { useCities, nearestCity } from "@/lib/cities";
 import { getLocation, buzz } from "@/lib/helpers";
+import { IconPin } from "@/components/Icons";
 
 type Suggestion = { id: string; name: string; score: number };
 type Near = { area_id: string; name: string; city: string; km: number };
@@ -133,7 +134,7 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
     }
     setTown(null);
     setHere(null);
-    setNotice(`${tidyName(town.name)} has been added 🎉 Now add your area in it.`);
+    setNotice(`${tidyName(town.name)} has been added. Now add your area in it.`);
   }
 
   async function add() {
@@ -170,7 +171,7 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
 
       {here && (
         <div className="ld-card-in flex flex-col gap-3 rounded-[22px] border border-(--light) bg-(--card) p-4">
-          <strong className="text-base">📍 You&apos;re in {here.city}</strong>
+          <strong className="flex items-center gap-2 text-base"><IconPin size={18} className="text-(--light-text)" />You&apos;re in {here.city}</strong>
           {here.areas.length > 0 ? (
             <>
               <span className="text-[15px] text-(--soft)">Looks like you&apos;re around here. Tap your area:</span>

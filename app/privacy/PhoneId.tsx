@@ -32,7 +32,7 @@ export function PhoneId() {
         }}
         className="min-h-10 self-start rounded-full bg-(--light) px-4 text-[14px] font-bold text-(--ink)"
       >
-        {copied ? "Copied ✅" : "Copy ID"}
+        {copied ? "Copied" : "Copy ID"}
       </button>
     </div>
   );

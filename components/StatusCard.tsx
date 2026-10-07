@@ -1,6 +1,7 @@
 import type { AreaStatus } from "@/lib/types";
 import { timeAgo } from "@/lib/helpers";
 import { Bulb } from "@/components/Bulb";
+import { IconBolt, IconClock } from "@/components/Icons";
 
 export function StatusCard({ area }: { area: AreaStatus }) {
   const total = area.on_count + area.off_count;
@@ -40,8 +41,9 @@ export function StatusCard({ area }: { area: AreaStatus }) {
       <span className="-mt-2 font-display text-[56px] font-extrabold leading-[0.95] tracking-[-2px]">
         {on ? "Light dey." : "No light."}
       </span>
-      <span className={`text-[17px] font-bold ${on ? "" : "text-(--soft)"}`}>
-        {on ? "Charge everything now ⚡" : "Hold on, e go come 🙏"}
+      <span className={`flex items-center gap-2 text-[17px] font-bold ${on ? "" : "text-(--soft)"}`}>
+        {on ? <IconBolt size={18} /> : <IconClock size={18} />}
+        {on ? "Charge everything now" : "Hold on, e go come"}
       </span>
       <span className={`text-[14px] font-medium ${on ? "opacity-75" : "text-(--muted)"}`}>
         Last report {timeAgo(area.last_report_at)} · {total} {total === 1 ? "person" : "people"} reported
