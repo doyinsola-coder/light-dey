@@ -77,37 +77,29 @@ export function WeekHistory({ areaId, areaName, refreshKey }: { areaId: string; 
   const ranges = enough ? usualRanges(week.usual) : [];
   const now = lagosHourNow();
 
-  return (
-    <section className="flex flex-col gap-3 rounded-[24px] border border-(--line) bg-(--card) p-4.5" aria-label={`This week in ${areaName}`}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-bold">This week in {areaName}</h2>
-        {enough && (
-          <span className="shrink-0 text-sm text-(--muted)">
-            <span className="font-display text-xl font-bold text-(--light-text)">{avg}</span> hrs/day
-          </span>
-        )}
-      </div>
+  // Quiet until there's a real pattern: no extra card, no "not enough data" message
+  if (!enough) return null;
 
-      {!enough ? (
-        <p className="flex items-start gap-2 text-[15px] leading-snug text-(--soft)">
-          <IconInfo size={18} className="mt-0.5 text-(--muted)" />
-          <span>
-            Not enough reports yet to see a pattern. When more people in {areaName} report, you&apos;ll see when light usually comes.
-          </span>
-        </p>
-      ) : ranges.length ? (
-        <p className="flex items-start gap-2 text-[15px] leading-snug">
-          <IconBolt size={18} className="mt-0.5 text-(--light-text)" />
-          <span>
-            Usually has light <strong>{ranges.join(" and ")}</strong>
-          </span>
-        </p>
-      ) : (
-        <p className="flex items-start gap-2 text-[15px] leading-snug text-(--soft)">
-          <IconInfo size={18} className="mt-0.5 text-(--muted)" />
-          <span>No steady pattern this week. Light hasn&apos;t come at the same time most days.</span>
-        </p>
-      )}
+  return (
+    <div className="flex flex-col gap-3 border-t border-(--divider) pt-3">
+      <div className="flex items-start justify-between gap-3">
+        {ranges.length ? (
+          <p className="flex items-start gap-2 text-[14px] leading-snug">
+            <IconBolt size={17} className="mt-0.5 text-(--light-text)" />
+            <span>
+              Usually has light <strong>{ranges.join(" and ")}</strong>
+            </span>
+          </p>
+        ) : (
+          <p className="flex items-start gap-2 text-[14px] leading-snug text-(--soft)">
+            <IconInfo size={17} className="mt-0.5 text-(--muted)" />
+            <span>No steady light pattern this week.</span>
+          </p>
+        )}
+        <button onClick={() => setOpen(!open)} className="shrink-0 text-[13px] font-bold text-(--light-text)" aria-expanded={open}>
+          {open ? "Hide" : "This week"}
+        </button>
+      </div>
 
       {open && (
         <div className="ld-card-in flex flex-col gap-1.5" role="img" aria-label={`Light reported in ${areaName} over the last 7 days`}>
@@ -135,22 +127,11 @@ export function WeekHistory({ areaId, areaName, refreshKey }: { areaId: string; 
           <div className="flex justify-between pl-12 text-xs text-(--muted)">
             <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span>
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-(--muted)">
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] bg-(--light)" />Light</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] bg-(--off-dot)" />No light</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] bg-(--divider)" />Nobody reported</span>
-          </div>
+          <p className="mt-1 text-xs leading-snug text-(--muted)">
+            About <strong className="text-(--text)">{avg} hrs</strong> of light a day, from {week.reports} reports by {week.people} people. Faint blocks: nobody reported.
+          </p>
         </div>
       )}
-
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-(--muted)">
-          From {week.reports} report{week.reports === 1 ? "" : "s"} by {week.people} {week.people === 1 ? "person" : "people"} in 7 days
-        </span>
-        <button onClick={() => setOpen(!open)} className="shrink-0 text-[13px] font-bold text-(--light-text)" aria-expanded={open}>
-          {open ? "Hide days" : "See each day"}
-        </button>
-      </div>
-    </section>
+    </div>
   );
 }

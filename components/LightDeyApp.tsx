@@ -13,7 +13,6 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { AreaPicker } from "@/components/AreaPicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TodayBar } from "@/components/TodayBar";
-import { WeekHistory } from "@/components/WeekHistory";
 import { Leaderboard } from "@/components/Leaderboard";
 import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
@@ -507,10 +506,6 @@ export default function LightDeyApp() {
 
         <div {...rise(2)}>
           <TodayBar areaId={area.area_id} areaName={area.name} refreshKey={area.last_report_at ?? ""} />
-        </div>
-
-        <div {...rise(2)}>
-          <WeekHistory areaId={area.area_id} areaName={area.name} refreshKey={area.last_report_at ?? ""} />
         </div>
 
         <div {...rise(3)}>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { CountUp } from "@/components/CountUp";
+import { WeekHistory } from "@/components/WeekHistory";
 
 type Hour = { hour_of_day: number; status: "on" | "off" };
 
@@ -65,6 +66,7 @@ export function TodayBar({ areaId, areaName, refreshKey }: { areaId: string; are
       <div className="flex justify-between text-xs text-(--muted)">
         <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span>
       </div>
+      <WeekHistory areaId={areaId} areaName={areaName} refreshKey={refreshKey} />
     </section>
   );
 }
