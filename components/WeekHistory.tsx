@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { IconBolt, IconInfo } from "@/components/Icons";
+import { BandCheck } from "@/components/BandCheck";
 
 type Week = {
   days: { day: string; hours: string }[]; // newest first; each hour is "1" light, "0" no light, "." nobody reported
@@ -100,6 +101,8 @@ export function WeekHistory({ areaId, areaName, refreshKey }: { areaId: string; 
           {open ? "Hide" : "This week"}
         </button>
       </div>
+
+      <BandCheck areaId={areaId} areaName={areaName} avg={avg} />
 
       {open && (
         <div className="ld-card-in flex flex-col gap-1.5" role="img" aria-label={`Light reported in ${areaName} over the last 7 days`}>
