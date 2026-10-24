@@ -15,7 +15,16 @@ const BANDS = Object.keys(PROMISE) as Band[];
 // "Band A: promised 20+ hrs a day, people reported 4.3."
 // avg = null means the area doesn't have a week of reports yet: then we only ASK for the band
 // (so band answers start building early), and show the comparison once the week is there.
-export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName: string; avg: number | null }) {
+type Props = {
+  areaId: string;
+  areaName: string;
+  avg: number | null;
+  variant?: "full" | "ask"; // "ask": only the question, when this phone hasn't said its band yet
+  forcePick?: boolean; // open straight on the A–E buttons (changing your band)
+  onDone?: () => void;
+};
+
+export function BandCheck({ areaId, areaName, avg, variant = "full", forcePick = false, onDone }: Props) {
   const [check, setCheck] = useState<{ areaId: string; c: Check } | null>(null);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState<Band | null>(null);
@@ -59,21 +68,25 @@ export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName:
     buzz([15, 30, 15]);
     setPicking(false);
     setTick((n) => n + 1);
+    onDone?.();
   }
 
   const c = check?.areaId === areaId ? check.c : null;
   if (!c) return null;
   const band = c.mine ?? c.area;
+  const choosing = picking || forcePick;
+
+  if (variant === "ask" && !choosing && (band || skipped)) return null;
 
   // Not enough data to compare yet: ask once, then stay out of the way
-  if (avg === null && !picking && (c.mine || skipped)) return null;
-  if (!band && !picking && skipped) return null;
+  if (avg === null && !choosing && (c.mine || skipped)) return null;
+  if (!band && !choosing && skipped) return null;
 
-  if (!band || picking || avg === null) {
+  if (!band || choosing || avg === null || variant === "ask") {
     return (
-      <div className={`flex flex-col gap-2 ${avg === null ? "border-t border-(--divider) pt-3" : ""}`}>
+      <div className={`flex flex-col gap-2 ${avg === null && variant === "full" ? "border-t border-(--divider) pt-3" : ""}`}>
         <span className="text-[14px] leading-snug">
-          {picking ? "Change your band:" : <>What band are you on? <span className="text-(--muted)">See how {areaName} compares.</span></>}
+          {choosing ? "Change your band:" : <>What band are you on? <span className="text-(--muted)">See how {areaName} compares.</span></>}
         </span>
         <div className="flex gap-1.5">
           {BANDS.map((b) => (
@@ -97,6 +110,7 @@ export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName:
                 store.set("lightdey_band_skip", "1");
                 setSkipped(true);
                 setPicking(false);
+                onDone?.();
               }}
               className="shrink-0 underline underline-offset-2"
             >

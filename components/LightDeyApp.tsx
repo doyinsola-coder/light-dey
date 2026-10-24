@@ -7,12 +7,10 @@ import type { AreaStatus, Status } from "@/lib/types";
 import { useCities, loadCities } from "@/lib/cities";
 import { buzz, getLocation, store, timeAgo, whatsappShare } from "@/lib/helpers";
 import { Logo } from "@/components/Logo";
-import { StatusCard } from "@/components/StatusCard";
 import { MixedNotice } from "@/components/MixedNotice";
 import { HowItWorks } from "@/components/HowItWorks";
 import { AreaPicker } from "@/components/AreaPicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { TodayBar } from "@/components/TodayBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { ShareCardButton } from "@/components/ShareCardButton";
 import { NotifyButton } from "@/components/NotifyButton";
@@ -30,7 +28,11 @@ import { CountUp } from "@/components/CountUp";
 import { MAKER, whatsappChatLink } from "@/lib/brand";
 import dynamic from "next/dynamic";
 import { IconPin, IconArrowRight } from "@/components/Icons";
-import { PlacesBar } from "@/components/PlacesBar";
+import { HomeHero } from "@/components/HomeHero";
+import { TodayTimeline } from "@/components/TodayTimeline";
+import { OtherPlaces, type PlaceInfo } from "@/components/OtherPlaces";
+import { BandCheck } from "@/components/BandCheck";
+import { useTimeline, useAreaWeek } from "@/lib/areaData";
 import { loadPlaces, savePlaces, trackVisit, MAX_PLACES, type Place } from "@/lib/places";
 
 // The map library is big, so it only loads when someone opens the map
@@ -63,7 +65,7 @@ export default function LightDeyApp() {
   const [celebrate, setCelebrate] = useState<string | null>(null); // area name, while the "Light don come!" screen shows
   // My places: up to 3 saved areas, each with a live dot. pickMode says what the area picker is for.
   const [places, setPlaces] = useState<Place[]>(loadPlaces);
-  const [placeInfo, setPlaceInfo] = useState<Record<string, { name: string; status: Status }>>({});
+  const [placeInfo, setPlaceInfo] = useState<PlaceInfo>({});
   const [pickMode, setPickMode] = useState<"add" | "replace">("add");
 
   // What we saw last time, so we can spot "no light" turning into "light dey" while the app is open
@@ -153,11 +155,18 @@ export default function LightDeyApp() {
     const refresh = () =>
       supabase
         .from("area_status")
-        .select("area_id, name, status")
+        .select("area_id, name, city, status, last_report_at")
         .in("area_id", ids)
         .then(({ data }) => {
           if (!alive || !data) return;
-          setPlaceInfo(Object.fromEntries((data as { area_id: string; name: string; status: Status }[]).map((a) => [a.area_id, { name: a.name, status: a.status }])));
+          setPlaceInfo(
+            Object.fromEntries(
+              (data as { area_id: string; name: string; city: string; status: Status; last_report_at: string | null }[]).map((a) => [
+                a.area_id,
+                { name: a.name, city: a.city, status: a.status, last_report_at: a.last_report_at },
+              ])
+            )
+          );
         });
     refresh();
     const t = setInterval(() => document.visibilityState === "visible" && refresh(), REFRESH_MS);
@@ -168,6 +177,9 @@ export default function LightDeyApp() {
   }, [placeKey]);
 
   const area = areas.find((a) => a.area_id === areaId) ?? null;
+  // Today's "Light came / Light went" list and the week pattern for the area on screen
+  const timeline = useTimeline(area?.area_id ?? "", area?.last_report_at ?? "");
+  const week = useAreaWeek(area?.area_id ?? "", area?.last_report_at ? area.last_report_at.slice(0, 13) : "");
 
   function updatePlaces(next: Place[]) {
     setPlaces(next);
@@ -189,6 +201,7 @@ export default function LightDeyApp() {
     store.set("lightdey_city", inCity);
     setPicking(false);
     setView("home");
+    window.scrollTo({ top: 0 });
   }
 
   // Add a new area (or get the existing one if the name is already there), then open it.
@@ -450,61 +463,36 @@ export default function LightDeyApp() {
     // Sections slide up one after another when the screen opens
     const rise = (i: number) => ({ className: "ld-rise", style: { animationDelay: `${80 + i * 70}ms` } });
 
+    const glow =
+      area.status === "on"
+        ? "radial-gradient(120% 360px at 50% 0%, rgba(255,197,49,0.22), transparent 70%)"
+        : area.status === "off"
+          ? "radial-gradient(120% 360px at 50% 0%, rgba(110,124,150,0.20), transparent 70%)"
+          : "none";
+
     screen = (
-      <main key="home" className="ld-view-in ld-safe-top ld-safe-bottom mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5">
+      <main key="home" className="ld-view-in ld-safe-top ld-safe-bottom mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5" style={{ backgroundImage: glow }}>
         <header className="flex items-center gap-2">
           <div className="mr-auto"><Logo /></div>
-          <button
-            onClick={() => {
-              setPrefill("");
-              setPickMode(places.some((p) => p.id === area.area_id) ? "replace" : "add");
-              setPicking(true);
-            }}
-            aria-label="Change area"
-            className="flex min-h-11 items-center gap-1.5 rounded-full border border-(--line) bg-(--raised) px-3.5 text-sm font-medium"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" />
-            </svg>
-            <span className="max-w-32 truncate">{area.name}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-(--muted)">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
           <ThemeToggle />
         </header>
 
-        <PlacesBar
-          places={places}
-          info={{ ...placeInfo, [area.area_id]: { name: area.name, status: area.status } }}
-          currentId={area.area_id}
-          currentName={area.name}
-          onSelect={(p) => {
-            if (p.city !== city) changeCity(p.city);
-            pickArea(p.id, p.city);
-          }}
-          onAdd={() => {
-            setPrefill("");
-            setPickMode("add");
-            setPicking(true);
-          }}
-          onSave={() => pickArea(area.area_id, area.city, "add")}
-          onRemove={(id) => {
-            const next = places.filter((p) => p.id !== id);
-            updatePlaces(next);
-            if (id === area.area_id && next[0]) {
-              if (next[0].city !== city) changeCity(next[0].city);
-              pickArea(next[0].id, next[0].city);
-            }
-          }}
-        />
-
-        <LiveRow city={area.city} updatedAt={updatedAt} />
-
         <Announcement city={area.city} />
 
-        {/* key: the card re-animates whenever the status changes */}
-        <StatusCard key={`${area.area_id}-${area.status}`} area={area} />
+        <HomeHero
+          key={`${area.area_id}-${area.status}`}
+          area={area}
+          events={timeline?.events ?? null}
+          week={week}
+          saved={places.some((p) => p.id === area.area_id)}
+          canSave={places.length < MAX_PLACES}
+          onSave={() => pickArea(area.area_id, area.city, "add")}
+          onChangeArea={() => {
+            setPrefill("");
+            setPickMode(places.some((p) => p.id === area.area_id) ? "replace" : "add");
+            setPicking(true);
+          }}
+        />
 
         <MixedNotice
           area={area}
@@ -527,7 +515,6 @@ export default function LightDeyApp() {
             }}
           />
         </div>
-
         {wrongPlace?.forArea === area.area_id && (
           <div className="ld-card-in flex flex-col gap-3 rounded-[22px] border border-(--light) bg-(--card) p-4" role="note">
             <div className="flex flex-col gap-1">
@@ -567,19 +554,42 @@ export default function LightDeyApp() {
         )}
 
         <div {...rise(1)}>
+          <TodayTimeline areaName={area.name} events={timeline?.events ?? null} lightHours={timeline?.lightHours ?? 0} week={week} />
+        </div>
+
+        <div {...rise(1)}>
+          <BandCheck areaId={area.area_id} areaName={area.name} avg={week?.enough ? week.avg : null} variant="ask" />
+        </div>
+
+        <div {...rise(2)}>
           <NotifyButton areaId={area.area_id} areaName={area.name} />
         </div>
 
         <div {...rise(2)}>
+          <OtherPlaces
+            places={places}
+            currentId={area.area_id}
+            info={placeInfo}
+            refreshKey={updatedAt === 0 ? 0 : Math.floor(updatedAt / (10 * 60_000))}
+            onOpen={(p) => {
+              if (p.city !== city) changeCity(p.city);
+              pickArea(p.id, p.city);
+            }}
+            onAdd={() => {
+              setPrefill("");
+              setPickMode("add");
+              setPicking(true);
+            }}
+            onRemove={(id) => updatePlaces(places.filter((p) => p.id !== id))}
+          />
+        </div>
+
+        <div {...rise(3)}>
           <BattleBanner city={area.city} />
         </div>
 
-        <div {...rise(2)}>
+        <div {...rise(3)}>
           <QuickQuestion areaId={area.area_id} areaName={area.name} />
-        </div>
-
-        <div {...rise(2)}>
-          <TodayBar areaId={area.area_id} areaName={area.name} refreshKey={area.last_report_at ?? ""} />
         </div>
 
         <div {...rise(3)}>

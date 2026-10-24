@@ -8,7 +8,7 @@ export type View = "home" | "map" | "leaderboard";
 const TABS: { id: View; label: string; icon: React.ReactNode }[] = [
   {
     id: "home",
-    label: "My area",
+    label: "My places",
     icon: (
       <>
         <path d="M9 18h6" /><path d="M10 22h4" />
