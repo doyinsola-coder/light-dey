@@ -21,6 +21,7 @@ type Props = {
   onAddCity: (name: string, state: string, lat: number, lng: number) => Promise<string | null>;
   initialQuery?: string; // e.g. "Tanke " when adding a street inside Tanke
   onClose?: () => void;
+  title?: string; // e.g. "Add a place"
 };
 
 const SHOW_MAX = 30;
@@ -43,7 +44,7 @@ function tidyName(raw: string) {
     .join(" ");
 }
 
-export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, onAddCity, initialQuery = "", onClose }: Props) {
+export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, onAddCity, initialQuery = "", onClose, title }: Props) {
   const cities = useCities();
   const states = useMemo(() => [...new Set(cities.map((c) => c.state))].sort((a, b) => a.localeCompare(b)), [cities]);
 
@@ -180,7 +181,7 @@ export function AreaPicker({ city, areas, loading, onCityChange, onPick, onAdd, 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-[32px] font-extrabold leading-tight tracking-tight">Where you dey?</h1>
+        <h1 className="font-display text-[32px] font-extrabold leading-tight tracking-tight">{title ?? "Where you dey?"}</h1>
         {onClose && (
           <button onClick={onClose} className="min-h-11 px-2 text-[15px] text-(--muted)">
             Close

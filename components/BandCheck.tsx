@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase, getDeviceId } from "@/lib/supabase";
-import { buzz, getLocation } from "@/lib/helpers";
+import { buzz, getLocation, store } from "@/lib/helpers";
 import { IconCheck, IconWarning } from "@/components/Icons";
 
 type Band = "A" | "B" | "C" | "D" | "E";
@@ -12,14 +12,16 @@ type Check = { mine: Band | null; area: Band | null; votes: number; total: numbe
 const PROMISE: Record<Band, number> = { A: 20, B: 16, C: 12, D: 8, E: 4 };
 const BANDS = Object.keys(PROMISE) as Band[];
 
-// "Band A: promised 20+ hrs a day, people reported 4.3." Only shown inside the week line,
-// so it never appears without a week of data behind it.
-export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName: string; avg: number }) {
+// "Band A: promised 20+ hrs a day, people reported 4.3."
+// avg = null means the area doesn't have a week of reports yet: then we only ASK for the band
+// (so band answers start building early), and show the comparison once the week is there.
+export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName: string; avg: number | null }) {
   const [check, setCheck] = useState<{ areaId: string; c: Check } | null>(null);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState<Band | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [skipped, setSkipped] = useState(() => store.get("lightdey_band_skip") === "1");
 
   useEffect(() => {
     let alive = true;
@@ -63,11 +65,15 @@ export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName:
   if (!c) return null;
   const band = c.mine ?? c.area;
 
-  if (!band || picking) {
+  // Not enough data to compare yet: ask once, then stay out of the way
+  if (avg === null && !picking && (c.mine || skipped)) return null;
+  if (!band && !picking && skipped) return null;
+
+  if (!band || picking || avg === null) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className={`flex flex-col gap-2 ${avg === null ? "border-t border-(--divider) pt-3" : ""}`}>
         <span className="text-[14px] leading-snug">
-          {band ? "Change your band:" : <>What band are you on? <span className="text-(--muted)">See how {areaName} compares.</span></>}
+          {picking ? "Change your band:" : <>What band are you on? <span className="text-(--muted)">See how {areaName} compares.</span></>}
         </span>
         <div className="flex gap-1.5">
           {BANDS.map((b) => (
@@ -83,7 +89,21 @@ export function BandCheck({ areaId, areaName, avg }: { areaId: string; areaName:
             </button>
           ))}
         </div>
-        <span className="text-xs text-(--muted)">Not sure? It&apos;s on your token receipt or bill.</span>
+        <span className="flex items-center justify-between gap-3 text-xs text-(--muted)">
+          <span>Not sure? It&apos;s on your token receipt or bill.</span>
+          {!c.mine && (
+            <button
+              onClick={() => {
+                store.set("lightdey_band_skip", "1");
+                setSkipped(true);
+                setPicking(false);
+              }}
+              className="shrink-0 underline underline-offset-2"
+            >
+              Don&apos;t know
+            </button>
+          )}
+        </span>
         {error && <span className="text-xs text-(--soft)" role="status">{error}</span>}
       </div>
     );

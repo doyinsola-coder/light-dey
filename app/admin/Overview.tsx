@@ -5,14 +5,28 @@ import { Card, Skeleton, useAdmin, IFlag, IMerge, IMegaphone, IChevron, IBolt, I
 
 type Stats = Record<string, number> & { top_towns_week?: { city: string; reports: number; people: number }[] };
 type Attention = { alerts: number; dupes: number; notice: string | null };
+type Growth = {
+  tracking_since: string | null;
+  opened_today: number;
+  opened_week: number;
+  returning_week: number;
+  new_week: number;
+  by_source_week: { source: string; n: number }[];
+  reporters_week: number;
+  returning_reporters_week: number;
+};
+
+const SOURCE: Record<string, string> = { tiktok: "TikTok", ig: "Instagram", x: "X", wa: "WhatsApp", fb: "Facebook", li: "LinkedIn", direct: "Direct or unknown" };
 
 export function Overview() {
   const { call, go } = useAdmin();
   const [s, setS] = useState<Stats | null>(null);
   const [att, setAtt] = useState<Attention | null>(null);
+  const [g, setG] = useState<Growth | null>(null);
 
   useEffect(() => {
     call<Stats>("admin_stats").then((d) => d && setS(d));
+    call<Growth>("admin_growth").then((d) => d && setG(d));
     Promise.all([
       call<unknown[]>("admin_suspicious"),
       call<unknown[]>("admin_duplicates", { p_city: null }),
@@ -64,6 +78,8 @@ export function Overview() {
         )}
       </Card>
 
+      {g && <GrowthCard g={g} />}
+
       {top.length > 0 && (
         <Card title="Busiest towns this week">
           <ul className="flex flex-col gap-3">
@@ -101,6 +117,57 @@ export function Overview() {
         </dl>
       </Card>
     </>
+  );
+}
+
+// Are people coming back, and which platform brings them? (from ?from= links)
+function GrowthCard({ g }: { g: Growth }) {
+  const max = Math.max(1, ...g.by_source_week.map((x) => x.n));
+  const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+  return (
+    <Card
+      title="Coming back"
+      sub={g.tracking_since ? `Counting since ${new Date(g.tracking_since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Starts counting once the update is live"}
+    >
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
+        <div className="flex flex-col">
+          <dt className="text-[12px] text-(--muted)">Opened the app this week</dt>
+          <dd className="font-bold">{g.opened_week.toLocaleString()} <span className="font-normal text-(--muted)">· {g.opened_today} today</span></dd>
+        </div>
+        <div className="flex flex-col">
+          <dt className="text-[12px] text-(--muted)">Came back (2+ days)</dt>
+          <dd className="font-bold">{g.returning_week.toLocaleString()} <span className="font-normal text-(--muted)">· {pct(g.returning_week, g.opened_week)}%</span></dd>
+        </div>
+        <div className="flex flex-col">
+          <dt className="text-[12px] text-(--muted)">Reporters this week</dt>
+          <dd className="font-bold">{g.reporters_week.toLocaleString()}</dd>
+        </div>
+        <div className="flex flex-col">
+          <dt className="text-[12px] text-(--muted)">Reported in an earlier week too</dt>
+          <dd className="font-bold">{g.returning_reporters_week.toLocaleString()} <span className="font-normal text-(--muted)">· {pct(g.returning_reporters_week, g.reporters_week)}%</span></dd>
+        </div>
+      </dl>
+      <div className="flex flex-col gap-2.5 border-t border-(--divider) pt-3">
+        <span className="text-[13px] font-bold">New phones this week: {g.new_week.toLocaleString()}</span>
+        {g.by_source_week.length === 0 ? (
+          <span className="text-[13px] text-(--muted)">None yet. Use links like lightdeyng.vercel.app/?from=tiktok in your bios.</span>
+        ) : (
+          <ul className="flex flex-col gap-2.5">
+            {g.by_source_week.map((x) => (
+              <li key={x.source} className="flex flex-col gap-1">
+                <span className="flex justify-between text-[14px]">
+                  <span className="font-bold">{SOURCE[x.source] ?? x.source}</span>
+                  <span className="text-(--muted)">{x.n}</span>
+                </span>
+                <span className="h-2 overflow-hidden rounded-full bg-(--raised)">
+                  <span className="block h-full rounded-full bg-(--light)" style={{ width: `${(x.n / max) * 100}%` }} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
   );
 }
 

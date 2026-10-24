@@ -78,8 +78,9 @@ export function WeekHistory({ areaId, areaName, refreshKey }: { areaId: string; 
   const ranges = enough ? usualRanges(week.usual) : [];
   const now = lagosHourNow();
 
-  // Quiet until there's a real pattern: no extra card, no "not enough data" message
-  if (!enough) return null;
+  // Quiet until there's a real pattern: no extra card, no "not enough data" message.
+  // Only the band question, so band answers build up before the week data does.
+  if (!enough) return <BandCheck areaId={areaId} areaName={areaName} avg={null} />;
 
   return (
     <div className="flex flex-col gap-3 border-t border-(--divider) pt-3">

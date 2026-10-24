@@ -30,6 +30,8 @@ import { CountUp } from "@/components/CountUp";
 import { MAKER, whatsappChatLink } from "@/lib/brand";
 import dynamic from "next/dynamic";
 import { IconPin, IconArrowRight } from "@/components/Icons";
+import { PlacesBar } from "@/components/PlacesBar";
+import { loadPlaces, savePlaces, trackVisit, MAX_PLACES, type Place } from "@/lib/places";
 
 // The map library is big, so it only loads when someone opens the map
 const MapView = dynamic(() => import("@/components/MapView"), {
@@ -59,6 +61,10 @@ export default function LightDeyApp() {
   const [updatedAt, setUpdatedAt] = useState(0);
   const [complainSignal, setComplainSignal] = useState(0); // opens the complaint box from the prompt after reporting
   const [celebrate, setCelebrate] = useState<string | null>(null); // area name, while the "Light don come!" screen shows
+  // My places: up to 3 saved areas, each with a live dot. pickMode says what the area picker is for.
+  const [places, setPlaces] = useState<Place[]>(loadPlaces);
+  const [placeInfo, setPlaceInfo] = useState<Record<string, { name: string; status: Status }>>({});
+  const [pickMode, setPickMode] = useState<"add" | "replace">("add");
 
   // What we saw last time, so we can spot "no light" turning into "light dey" while the app is open
   const areasRef = useRef<AreaStatus[]>([]);
@@ -133,9 +139,50 @@ export default function LightDeyApp() {
     };
   }, [fetchAreas, applyAreas]);
 
+  // Which platform brought this phone, and which days it opens the app (no personal data)
+  useEffect(() => {
+    trackVisit();
+  }, []);
+
+  // Live dots for My places (they can be in different towns, so ask for them by id)
+  const placeKey = places.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!placeKey) return;
+    let alive = true;
+    const ids = placeKey.split(",");
+    const refresh = () =>
+      supabase
+        .from("area_status")
+        .select("area_id, name, status")
+        .in("area_id", ids)
+        .then(({ data }) => {
+          if (!alive || !data) return;
+          setPlaceInfo(Object.fromEntries((data as { area_id: string; name: string; status: Status }[]).map((a) => [a.area_id, { name: a.name, status: a.status }])));
+        });
+    refresh();
+    const t = setInterval(() => document.visibilityState === "visible" && refresh(), REFRESH_MS);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [placeKey]);
+
   const area = areas.find((a) => a.area_id === areaId) ?? null;
 
-  function pickArea(id: string, inCity: string = city) {
+  function updatePlaces(next: Place[]) {
+    setPlaces(next);
+    savePlaces(next);
+  }
+
+  // mode: "add" = save as a new place, "replace" = swap the place on screen for this one, "visit" = just look
+  function pickArea(id: string, inCity: string = city, mode: "add" | "replace" | "visit" = "visit") {
+    if (mode !== "visit" && !places.some((p) => p.id === id)) {
+      const here = places.findIndex((p) => p.id === areaId);
+      const entry = { id, city: inCity };
+      if (mode === "replace" && here >= 0) updatePlaces(places.map((p, i) => (i === here ? entry : p)));
+      else if (places.length < MAX_PLACES) updatePlaces([...places, entry]);
+      else updatePlaces([...places.slice(0, MAX_PLACES - 1), entry]);
+    }
     areaIdRef.current = id;
     setAreaId(id);
     store.set("lightdey_area", id);
@@ -173,7 +220,7 @@ export default function LightDeyApp() {
     }
     fullRef.current = null; // the new area has no reports yet, so reload the whole list
     await load();
-    pickArea(data as string);
+    pickArea(data as string, city, pickMode);
     return null;
   }
 
@@ -322,11 +369,12 @@ export default function LightDeyApp() {
           areas={areas}
           loading={loading}
           onCityChange={changeCity}
-          onPick={pickArea}
+          onPick={(id, inCity) => pickArea(id, inCity ?? city, pickMode)}
           onAdd={addArea}
           onAddCity={addCity}
           initialQuery={prefill}
           onClose={area ? () => setPicking(false) : undefined}
+          title={pickMode === "add" && places.length > 0 ? "Add a place" : undefined}
         />
       </main>
     );
@@ -409,6 +457,7 @@ export default function LightDeyApp() {
           <button
             onClick={() => {
               setPrefill("");
+              setPickMode(places.some((p) => p.id === area.area_id) ? "replace" : "add");
               setPicking(true);
             }}
             aria-label="Change area"
@@ -424,6 +473,31 @@ export default function LightDeyApp() {
           </button>
           <ThemeToggle />
         </header>
+
+        <PlacesBar
+          places={places}
+          info={{ ...placeInfo, [area.area_id]: { name: area.name, status: area.status } }}
+          currentId={area.area_id}
+          currentName={area.name}
+          onSelect={(p) => {
+            if (p.city !== city) changeCity(p.city);
+            pickArea(p.id, p.city);
+          }}
+          onAdd={() => {
+            setPrefill("");
+            setPickMode("add");
+            setPicking(true);
+          }}
+          onSave={() => pickArea(area.area_id, area.city, "add")}
+          onRemove={(id) => {
+            const next = places.filter((p) => p.id !== id);
+            updatePlaces(next);
+            if (id === area.area_id && next[0]) {
+              if (next[0].city !== city) changeCity(next[0].city);
+              pickArea(next[0].id, next[0].city);
+            }
+          }}
+        />
 
         <LiveRow city={area.city} updatedAt={updatedAt} />
 

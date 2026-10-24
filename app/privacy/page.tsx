@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "What Light Dey collects, why, and how to have it deleted.",
 };
 
-const UPDATED = "7 October 2026";
+const UPDATED = "24 October 2026";
 
 function H({ children }: { children: React.ReactNode }) {
   return <h2 className="mt-4 font-display text-[22px] font-extrabold tracking-tight">{children}</h2>;
@@ -33,8 +33,9 @@ export default function PrivacyPage() {
       <H>What we collect</H>
       <ul className="flex list-disc flex-col gap-2 pl-5">
         <li>
-          <strong className="text-(--text)">A random phone ID.</strong> Created on your phone the first time you report. It
-          isn&apos;t linked to your name or number. We use it to allow one report every 15 minutes and stop spam.
+          <strong className="text-(--text)">A random phone ID.</strong> Created on your phone the first time you use Light Dey.
+          It isn&apos;t linked to your name or number. We use it to allow one report every 15 minutes, stop spam, and count
+          how many people come back.
         </li>
         <li>
           <strong className="text-(--text)">Your reports:</strong> the area, &quot;light dey&quot; or &quot;no light&quot;, the time,
@@ -53,6 +54,15 @@ export default function PrivacyPage() {
           <strong className="text-(--text)">Quick question answers</strong>, if you answer them (for example, what meter you use
           or what band you&apos;re on). We check your location is in your area&apos;s town, but we don&apos;t save it with the
           answer. Skipping is always fine.
+        </li>
+        <li>
+          <strong className="text-(--text)">Which days you open the app, and how you found it.</strong> If you came from a
+          link like one on TikTok or X, we note that word (for example &quot;tiktok&quot;) with your phone ID. Only totals are
+          ever looked at, such as how many people came from TikTok this week.
+        </li>
+        <li>
+          <strong className="text-(--text)">Your places.</strong> The areas you save under My places are kept on your phone.
+          We don&apos;t store your list.
         </li>
         <li>
           <strong className="text-(--text)">Alert settings.</strong> If you turn on &quot;notify me when light comes&quot;, we keep
