@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 import { store } from "@/lib/helpers";
 import {
   AdminCtx, type Call, type Confirm, type Tab, explain, field, btn, btnSoft,
-  IHome, ILive, IAreas, IMegaphone, IMore, ILock, IRefresh, ICheck, IEye, IChevron,
+  IHome, ILive, IAreas, IMegaphone, IMore, ILock, IRefresh, ICheck, IEye, IChevron, IBell,
 } from "./ui";
-import { Overview } from "./Overview";
+import { Overview, Growth } from "./Overview";
+import { MAKER } from "@/lib/brand";
 import { Live } from "./Live";
 import { Areas } from "./Areas";
 import { Announce } from "./Announce";
@@ -36,8 +37,9 @@ const TITLES: Record<Tab, string> = {
   questions: "Daily questions",
   battles: "City battles",
   download: "Download data",
+  growth: "Growth",
 };
-const UNDER_MORE: Tab[] = ["battles", "towns", "phones", "questions", "download"];
+const UNDER_MORE: Tab[] = ["battles", "towns", "phones", "questions", "download", "growth"];
 
 export function AdminPanel() {
   const [key, setKey] = useState("");
@@ -45,6 +47,8 @@ export function AdminPanel() {
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const [sub, setSub] = useState<string | undefined>(undefined); // which part of the screen to open (e.g. "alerts")
+  const [alertCount, setAlertCount] = useState(0); // red dot on the bell
   const [refresh, setRefresh] = useState(0); // bump to reload the current screen
   const [toastMsg, setToastMsg] = useState<{ text: string; ok: boolean; n: number } | null>(null);
   const [ask, setAsk] = useState<(Parameters<Confirm>[0] & { resolve: (v: boolean) => void }) | null>(null);
@@ -119,39 +123,68 @@ export function AdminPanel() {
   }
 
   const navActive = UNDER_MORE.includes(tab) ? "more" : tab;
-  const go = (t: Tab) => {
+  const go = (t: Tab, part?: string) => {
     setTab(t);
+    setSub(part);
     window.scrollTo({ top: 0 });
   };
 
   return (
     <AdminCtx.Provider value={{ call, busy, toast, confirm, go, openPhone, changed }}>
       <div className="mx-auto flex min-h-dvh max-w-md flex-col">
-        <header className="ld-safe-top sticky top-0 z-20 flex items-center gap-3 border-b border-(--line) bg-(--bg)/85 px-5 pb-3 backdrop-blur-md">
-          {UNDER_MORE.includes(tab) ? (
-            <button onClick={() => go("more")} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full">
-              <IChevron size={22} className="rotate-180" />
+        {tab === "home" ? (
+          // Home: a greeting bar like a banking app
+          <header className="ld-safe-top sticky top-0 z-20 flex items-center gap-2.5 bg-(--bg)/85 px-5 pb-3 backdrop-blur-md">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--light) font-display text-[16px] font-extrabold text-(--ink)" aria-hidden="true">
+              {MAKER.name.slice(0, 1)}
+            </span>
+            <div className="mr-auto flex flex-col leading-tight">
+              <span className="text-[12px] text-(--muted)">{new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"}</span>
+              <span className="text-[16px] font-extrabold">Hi, {MAKER.name}</span>
+            </div>
+            <button
+              onClick={() => go("live", "alerts")}
+              aria-label={alertCount ? `${alertCount} alerts` : "Alerts"}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)"
+            >
+              <IBell size={18} />
+              {alertCount > 0 && <span className="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-(--raised) bg-[#E5484D]" />}
             </button>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/admin-192.png" alt="" width={34} height={34} className="rounded-[10px]" />
-          )}
-          <div className="mr-auto flex flex-col leading-tight">
-            <span className="text-[11px] font-bold uppercase tracking-[1.2px] text-(--muted)">Light Dey Admin</span>
-            <h1 className="font-display text-[22px] font-extrabold tracking-tight">{TITLES[tab]}</h1>
-          </div>
-          <button onClick={() => setRefresh((n) => n + 1)} aria-label="Refresh" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
-            <IRefresh size={18} className={busy ? "animate-spin" : ""} />
-          </button>
-          <button onClick={lock} aria-label="Lock" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
-            <ILock size={18} />
-          </button>
-        </header>
+            <button onClick={() => setRefresh((n) => n + 1)} aria-label="Refresh" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
+              <IRefresh size={17} className={busy ? "animate-spin" : ""} />
+            </button>
+            <button onClick={lock} aria-label="Lock" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
+              <ILock size={17} />
+            </button>
+          </header>
+        ) : (
+        <header className="ld-safe-top sticky top-0 z-20 flex items-center gap-3 border-b border-(--line) bg-(--bg)/85 px-5 pb-3 backdrop-blur-md">
+            {UNDER_MORE.includes(tab) ? (
+              <button onClick={() => go("more")} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full">
+                <IChevron size={22} className="rotate-180" />
+              </button>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/admin-192.png" alt="" width={34} height={34} className="rounded-[10px]" />
+            )}
+            <div className="mr-auto flex flex-col leading-tight">
+              <span className="text-[11px] font-bold uppercase tracking-[1.2px] text-(--muted)">Light Dey Admin</span>
+              <h1 className="font-display text-[22px] font-extrabold tracking-tight">{TITLES[tab]}</h1>
+            </div>
+            <button onClick={() => setRefresh((n) => n + 1)} aria-label="Refresh" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
+              <IRefresh size={18} className={busy ? "animate-spin" : ""} />
+            </button>
+            <button onClick={lock} aria-label="Lock" className="flex h-10 w-10 items-center justify-center rounded-full border border-(--line) bg-(--raised)">
+              <ILock size={18} />
+            </button>
+          </header>
+        )}
 
         <main key={`${tab}-${refresh}`} className="ld-card-in flex flex-1 flex-col gap-4 px-5 pb-32 pt-4">
-          {tab === "home" && <Overview />}
-          {tab === "live" && <Live />}
-          {tab === "areas" && <Areas />}
+          {tab === "home" && <Overview onAlerts={setAlertCount} />}
+          {tab === "live" && <Live initial={sub === "alerts" ? "alerts" : "feed"} />}
+          {tab === "areas" && <Areas initial={sub === "dupes" ? "dupes" : sub === "add" ? "add" : "find"} />}
+          {tab === "growth" && <Growth />}
           {tab === "announce" && <Announce />}
           {tab === "more" && <More />}
           {tab === "towns" && <Towns />}

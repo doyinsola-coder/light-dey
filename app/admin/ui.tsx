@@ -7,8 +7,8 @@ import { createContext, useContext } from "react";
 
 export type Call = <T>(fn: string, args?: Record<string, unknown>, done?: string) => Promise<T | null>;
 export type Confirm = (opts: { title: string; body?: string; action: string; danger?: boolean }) => Promise<boolean>;
-export type Go = (tab: Tab) => void;
-export type Tab = "home" | "live" | "areas" | "announce" | "more" | "towns" | "phones" | "questions" | "download" | "battles";
+export type Go = (tab: Tab, sub?: string) => void; // sub opens a part of the screen, e.g. go("live", "alerts")
+export type Tab = "home" | "live" | "areas" | "announce" | "more" | "towns" | "phones" | "questions" | "download" | "battles" | "growth";
 
 export const AdminCtx = createContext<{
   call: Call;
@@ -153,4 +153,6 @@ export const IClose = (p: P) => <I {...p}><path d="M6 6l12 12M18 6L6 18" /></I>;
 export const IMessage = (p: P) => <I {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></I>;
 export const IInfo = (p: P) => <I {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></I>;
 export const IWarn = (p: P) => <I {...p}><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></I>;
+export const IBell = (p: P) => <I {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></I>;
+export const IChart = (p: P) => <I {...p}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></I>;
 export const ISwords = (p: P) => <I {...p}><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2" /><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2" /></I>;

@@ -8,8 +8,8 @@ import { Card, Empty, Segments, Skeleton, useAdmin, phone, field, btnSoft, btnDa
 type FeedRow = { id: number; status: "on" | "off"; area_id: string; area: string; city: string; device_id: string; device_reports_24h: number; created_at: string; blocked: boolean };
 type Alert = { device_id: string; reports: number; areas: number; towns: number; flips: number; last_at: string; where_: string; reasons: string[]; blocked: boolean };
 
-export function Live() {
-  const [view, setView] = useState<"feed" | "alerts">("feed");
+export function Live({ initial = "feed" }: { initial?: "feed" | "alerts" }) {
+  const [view, setView] = useState<"feed" | "alerts">(initial);
   const [alertCount, setAlertCount] = useState(0);
   return (
     <>

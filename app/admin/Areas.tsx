@@ -12,8 +12,8 @@ type FoundArea = { id: string; state: string; city: string; name: string; report
 type Report = { id: number; status: string; device_id: string; device_reports_today: number; created_at: string; blocked: boolean };
 type Dupe = { city: string; a_id: string; a_name: string; a_reports: number; b_id: string; b_name: string; b_reports: number; likeness: number };
 
-export function Areas() {
-  const [view, setView] = useState<"find" | "dupes" | "add">("find");
+export function Areas({ initial = "find" }: { initial?: "find" | "dupes" | "add" }) {
+  const [view, setView] = useState<"find" | "dupes" | "add">(initial);
   // State and town are shared by all three views
   const cities = useCities();
   const states = useMemo(() => [...new Set(cities.map((c) => c.state))].sort((a, b) => a.localeCompare(b)), [cities]);
