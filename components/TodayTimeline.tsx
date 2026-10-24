@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { clock, lagosHourNow, type Event, type useAreaWeek } from "@/lib/areaData";
+import { ShareCardButton } from "@/components/ShareCardButton";
 
 type WeekInfo = ReturnType<typeof useAreaWeek>;
 
@@ -12,9 +13,19 @@ function dayLabel(day: string, i: number) {
 }
 
 // "Today in Tanke": Light came 6:12pm · 4 reports, Light went 12:03pm · 2 reports, ...
-export function TodayTimeline({ areaName, events, lightHours, week }: { areaName: string; events: Event[] | null; lightHours: number; week: WeekInfo }) {
+type Props = {
+  areaId: string;
+  areaName: string;
+  status: "on" | "off" | "unknown"; // the area's status right now
+  events: Event[] | null;
+  lightHours: number;
+  week: WeekInfo;
+  openWeek?: boolean;
+};
+
+export function TodayTimeline({ areaId, areaName, status, events, lightHours, week, openWeek = false }: Props) {
   const [all, setAll] = useState(false);
-  const [showWeek, setShowWeek] = useState(false);
+  const [showWeek, setShowWeek] = useState(openWeek); // the Sunday report opens straight on the week
   const list = events ?? [];
   const shown = all ? list : list.slice(0, 3);
   const now = lagosHourNow();
@@ -38,16 +49,32 @@ export function TodayTimeline({ areaName, events, lightHours, week }: { areaName
           {shown.map((e, i) => {
             const first = i === list.length - 1; // the day's first report: no change to describe
             const on = e.status === "on";
-            const label = first ? (on ? "Light dey (first report)" : "No light (first report)") : on ? "Light came" : "Light went";
+            // The newest report disagrees with the area's status: some people say it changed, not enough yet
+            const unconfirmed = i === 0 && status !== "unknown" && e.status !== status;
+            const label = unconfirmed
+              ? on
+                ? "Light came? Not confirmed yet"
+                : "Light went? Not confirmed yet"
+              : first
+                ? on
+                  ? "Light dey (first report)"
+                  : "No light (first report)"
+                : on
+                  ? "Light came"
+                  : "Light went";
             const lastShown = i === shown.length - 1;
             return (
               <li key={e.at} className="flex gap-3">
                 <span className="flex flex-col items-center pt-1" aria-hidden="true">
-                  <span className={`h-3 w-3 shrink-0 rounded-full ${on ? "bg-(--light)" : "bg-(--off-dot)"} ${i === 0 && on ? "shadow-[0_0_10px_rgba(255,197,49,0.7)]" : ""}`} />
+                  <span
+                    className={`h-3 w-3 shrink-0 rounded-full ${
+                      unconfirmed ? "border-2 border-dashed border-(--off-dot)" : on ? "bg-(--light)" : "bg-(--off-dot)"
+                    } ${i === 0 && on && !unconfirmed ? "shadow-[0_0_10px_rgba(255,197,49,0.7)]" : ""}`}
+                  />
                   {!lastShown && <span className="w-0.5 flex-1 bg-(--line)" />}
                 </span>
                 <span className={`flex flex-col ${lastShown ? "" : "pb-3"}`}>
-                  <span className="text-[15px] font-extrabold">{label}</span>
+                  <span className={`text-[15px] font-extrabold ${unconfirmed ? "text-(--soft)" : ""}`}>{label}</span>
                   <span className="text-[13px] text-(--muted)">
                     {clock(e.at)} · {e.reports} report{e.reports === 1 ? "" : "s"}
                   </span>
@@ -82,6 +109,16 @@ export function TodayTimeline({ areaName, events, lightHours, week }: { areaName
             {week.enough ? <>About <strong className="text-(--text)">{week.avg} hrs</strong> of light a day, from </> : "From "}
             {week.week.reports} reports by {week.week.people} people. Faint blocks: nobody reported.
           </p>
+          {week.enough && (
+            <div className="mt-2">
+              <ShareCardButton
+                imageUrl={`/api/week-card?area=${areaId}`}
+                fileName={`light-dey-week-${areaName}`}
+                text={`${areaName} this week: about ${week.avg} hrs of light a day. Check your area: ${typeof location !== "undefined" ? location.origin : ""}`}
+                label="Share this week"
+              />
+            </div>
+          )}
         </div>
       )}
 

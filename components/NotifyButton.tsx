@@ -27,10 +27,14 @@ async function getRegistration() {
   return (await navigator.serviceWorker.getRegistration("/")) ?? navigator.serviceWorker.register("/sw.js");
 }
 
+type Prefs = { notify_off: boolean; daily: boolean };
+
 export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: string }) {
   const [state, setState] = useState<{ areaId: string; mode: Mode }>(() => ({ areaId, mode: initialMode() }));
   const [error, setError] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<{ areaId: string; p: Prefs } | null>(null);
   const mode: Mode = state.areaId === areaId ? state.mode : initialMode();
+  const p: Prefs = prefs?.areaId === areaId ? prefs.p : { notify_off: false, daily: true };
 
   // Is this phone already following this area?
   useEffect(() => {
@@ -40,7 +44,8 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
       .then((reg) => reg.pushManager.getSubscription())
       .then(async (sub) => {
         if (!sub) return false;
-        const { data } = await supabase.rpc("has_push_subscription", { p_endpoint: sub.endpoint, p_area_id: areaId });
+        const { data } = await supabase.rpc("push_prefs", { p_endpoint: sub.endpoint, p_area_id: areaId });
+        if (data && alive) setPrefs({ areaId, p: data as Prefs });
         return Boolean(data);
       })
       .then((on) => alive && setState({ areaId, mode: on ? "on" : "off" }))
@@ -72,6 +77,7 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
         p_area_id: areaId,
       });
       if (err) throw new Error(err.message);
+      setPrefs({ areaId, p: { notify_off: false, daily: true } });
       setState({ areaId, mode: "on" });
     } catch (e) {
       setError(
@@ -93,6 +99,26 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
       // nothing to undo
     }
     setState({ areaId, mode: "off" });
+  }
+
+  // "Also when light goes" / "Morning summary": saved for this phone and this area
+  async function setPref(key: keyof Prefs, value: boolean) {
+    const next = { ...p, [key]: value };
+    setPrefs({ areaId, p: next });
+    try {
+      const sub = await (await getRegistration()).pushManager.getSubscription();
+      if (!sub) return;
+      const { error: err } = await supabase.rpc("set_push_prefs", {
+        p_endpoint: sub.endpoint,
+        p_area_id: areaId,
+        p_notify_off: key === "notify_off" ? value : null,
+        p_daily: key === "daily" ? value : null,
+      });
+      if (err) throw err;
+    } catch {
+      setPrefs({ areaId, p });
+      setError("Couldn't save that. Try again.");
+    }
   }
 
   if (mode === "unsupported" || mode === "checking") return null;
@@ -141,7 +167,42 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
           <span className={`h-5 w-5 rounded-full transition-transform ${on ? "translate-x-5 bg-(--ink)" : "bg-(--muted)"}`} />
         </span>
       </button>
+      {on && (
+        <div className="flex flex-col rounded-2xl border border-(--line) bg-(--card) px-4 py-1">
+          <Switch
+            label="Also when light goes"
+            hint={`Know when ${areaName} loses light`}
+            on={p.notify_off}
+            onChange={(v) => setPref("notify_off", v)}
+          />
+          <Switch
+            label="Morning summary"
+            hint="7am: how last night went. Sundays: your week."
+            on={p.daily}
+            onChange={(v) => setPref("daily", v)}
+          />
+        </div>
+      )}
       {error && <p className="text-sm text-(--muted)" role="status">{error}</p>}
     </div>
+  );
+}
+
+function Switch({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!on)}
+      role="switch"
+      aria-checked={on}
+      className="flex min-h-14 items-center justify-between gap-3 border-b border-(--divider) py-2 text-left last:border-0"
+    >
+      <span className="flex flex-col">
+        <span className="text-[14px] font-bold">{label}</span>
+        <span className="text-[12px] text-(--muted)">{hint}</span>
+      </span>
+      <span className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors ${on ? "bg-(--light)" : "bg-(--divider)"}`} aria-hidden="true">
+        <span className={`h-5 w-5 rounded-full transition-transform ${on ? "translate-x-4 bg-(--ink)" : "bg-(--muted)"}`} />
+      </span>
+    </button>
   );
 }

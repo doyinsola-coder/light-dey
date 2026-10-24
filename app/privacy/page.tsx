@@ -66,7 +66,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong className="text-(--text)">Alert settings.</strong> If you turn on &quot;notify me when light comes&quot;, we keep
-          the technical address your browser gives us for sending notifications, and the areas you follow.
+          the technical address your browser gives us for sending notifications, the areas you follow, and whether you also
+          want &quot;light gone&quot; alerts and the morning summary. Turn any of them off from the same switch.
         </li>
         <li>
           <strong className="text-(--text)">Settings on your phone only:</strong> your area, light/dark mode and similar. These

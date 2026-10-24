@@ -47,7 +47,8 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {
-        if ("focus" in w) return w.focus();
+        // App already open: bring it up on the notification's page (area, weekly report)
+        if ("focus" in w) return w.focus().then((c) => (url !== "/" && c && "navigate" in c ? c.navigate(url) : c));
       }
       return self.clients.openWindow(url);
     })

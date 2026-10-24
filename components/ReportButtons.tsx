@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { buzz, store } from "@/lib/helpers";
+import { supabase } from "@/lib/supabase";
 import { IconCheck as TickIcon, IconPin, IconMessage, IconArrowRight } from "@/components/Icons";
 
 type Choice = "on" | "off";
@@ -91,6 +92,7 @@ function Check() {
 }
 
 type Props = {
+  areaId?: string; // for "You helped": how many people follow this area and reported today
   areaName: string;
   onReport: (status: Choice) => Promise<ReportOutcome>;
   // Optional "came earlier?" fix. Returns the minutes actually counted, or null if it failed.
@@ -115,7 +117,20 @@ function agoText(mins: number) {
 // The two report buttons. After a report, the chosen one stays lit with a tick and
 // a bar that drains over the 15-minute wait, then both unlock again.
 // The wait is per phone (not per area), same as the server rule, and survives reloads.
-export function ReportButtons({ areaName, onReport, onEarlier, onComplain }: Props) {
+// "Thanks! 23 people follow Tanke. You're 1 of 7 who reported today."
+async function helpedNote(areaId: string, areaName: string): Promise<string | null> {
+  const { data } = await supabase.rpc("area_helped", { p_area: areaId });
+  const d = data as { followers: number; reporters_today: number } | null;
+  if (!d) return null;
+  const parts = ["Thanks!"];
+  if (d.followers > 0) parts.push(`${d.followers} ${d.followers === 1 ? "person follows" : "people follow"} ${areaName}, and your report just updated them.`);
+  else parts.push("Your neighbours can see it now.");
+  if (d.reporters_today > 1) parts.push(`You're 1 of ${d.reporters_today} who reported today.`);
+  else parts.push("You're the first to report today.");
+  return parts.join(" ");
+}
+
+export function ReportButtons({ areaId, areaName, onReport, onEarlier, onComplain }: Props) {
   const [last, setLast] = useState<Last | null>(readLast);
   const [now, setNow] = useState(() => Date.now());
   const [sending, setSending] = useState<Choice | null>(null);
@@ -159,6 +174,7 @@ export function ReportButtons({ areaName, onReport, onEarlier, onComplain }: Pro
       startCooldown(status);
       setJustSent((n) => n + 1);
       setNote("Thanks! Your neighbours can see it now.", true);
+      if (areaId) helpedNote(areaId, areaName).then((t) => t && setNote(t, true)).catch(() => {});
       if (onEarlier) setEarlier({ status, at: Date.now(), picked: null });
     } else if (outcome === "too_soon") {
       // Reported from another tab or after clearing the app: wait it out from now
@@ -313,7 +329,7 @@ export function ReportButtons({ areaName, onReport, onEarlier, onComplain }: Pro
         </div>
       )}
       <p
-        className={`flex min-h-5 items-center gap-1.5 text-sm ${noteOk ? "font-bold text-(--light-text)" : "text-(--muted)"}`}
+        className={`flex min-h-5 items-start gap-1.5 text-sm leading-snug ${noteOk ? "font-bold text-(--light-text)" : "text-(--muted)"}`}
         role="status"
         aria-live="polite"
       >
