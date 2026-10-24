@@ -146,6 +146,43 @@ export default function LightDeyApp() {
     trackVisit();
   }, []);
 
+  // Opened from a notification: /?area=<id> (and &week=1 for the Sunday report)
+  const [weekFor, setWeekFor] = useState<string | null>(null);
+  const linkDone = useRef(false);
+  useEffect(() => {
+    if (linkDone.current) return;
+    linkDone.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("area");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    const week = params.get("week") === "1";
+    params.delete("area");
+    params.delete("week");
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    supabase
+      .from("area_status")
+      .select("area_id, city")
+      .eq("area_id", id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const a = data as { area_id: string; city: string } | null;
+        if (!a) return;
+        if (a.city !== savedCity()) {
+          setCity(a.city);
+          areasRef.current = [];
+          setAreas([]);
+          setLoading(true);
+        }
+        areaIdRef.current = a.area_id;
+        setAreaId(a.area_id);
+        store.set("lightdey_area", a.area_id);
+        store.set("lightdey_city", a.city);
+        setView("home");
+        if (week) setWeekFor(a.area_id);
+      });
+  }, []);
+
   // Live dots for My places (they can be in different towns, so ask for them by id)
   const placeKey = places.map((p) => p.id).join(",");
   useEffect(() => {
@@ -303,11 +340,13 @@ export default function LightDeyApp() {
     }
 
     // This report brought light back: tell everyone following this area (the server double-checks)
-    if (lightCameBack === true) {
+    if (lightCameBack === true || status === "off") {
+      // "on": this report brought light back. "off": it may have just taken the area to no light.
+      // The server re-checks before sending anything.
       fetch("/api/push/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ areaId: area.area_id }),
+        body: JSON.stringify({ areaId: area.area_id, kind: lightCameBack === true ? "on" : "off" }),
       }).catch(() => {});
     }
     await load();
@@ -504,6 +543,7 @@ export default function LightDeyApp() {
 
         <div {...rise(0)}>
           <ReportButtons
+            areaId={area.area_id}
             areaName={area.name}
             onReport={report}
             onEarlier={reportEarlier}
@@ -554,7 +594,16 @@ export default function LightDeyApp() {
         )}
 
         <div {...rise(1)}>
-          <TodayTimeline areaName={area.name} events={timeline?.events ?? null} lightHours={timeline?.lightHours ?? 0} week={week} />
+          <TodayTimeline
+            key={`${area.area_id}-${weekFor === area.area_id ? "week" : "day"}`}
+            areaId={area.area_id}
+            areaName={area.name}
+            status={area.status}
+            events={timeline?.events ?? null}
+            lightHours={timeline?.lightHours ?? 0}
+            week={week}
+            openWeek={weekFor === area.area_id}
+          />
         </div>
 
         <div {...rise(1)}>
