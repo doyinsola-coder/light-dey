@@ -33,6 +33,9 @@ import { TodayTimeline } from "@/components/TodayTimeline";
 import { OtherPlaces, type PlaceInfo } from "@/components/OtherPlaces";
 import { BandCheck } from "@/components/BandCheck";
 import { SettingsSheet, SettingsButton } from "@/components/SettingsSheet";
+import { PointsCard } from "@/components/PointsCard";
+import { usePoints, useContest } from "@/lib/rewards";
+import { ContestCard } from "@/components/ContestCard";
 import { useTimeline, useAreaWeek } from "@/lib/areaData";
 import { loadPlaces, savePlaces, trackVisit, MAX_PLACES, type Place } from "@/lib/places";
 
@@ -156,6 +159,8 @@ export default function LightDeyApp() {
 
   // Opened from a notification: /?area=<id> (and &week=1 for the Sunday report)
   const [weekFor, setWeekFor] = useState<string | null>(null);
+  // Opened from an alert: /?area=<id>&confirm=on|off asks "is it true?" above the report buttons
+  const [confirmFor, setConfirmFor] = useState<{ areaId: string; status: "on" | "off" } | null>(null);
   const linkDone = useRef(false);
   useEffect(() => {
     if (linkDone.current) return;
@@ -164,6 +169,8 @@ export default function LightDeyApp() {
     const id = params.get("area");
     if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
     const week = params.get("week") === "1";
+    const confirm = params.get("confirm");
+    params.delete("confirm");
     params.delete("area");
     params.delete("week");
     const rest = params.toString();
@@ -188,6 +195,7 @@ export default function LightDeyApp() {
         store.set("lightdey_city", a.city);
         setView("home");
         if (week) setWeekFor(a.area_id);
+        if (confirm === "on" || confirm === "off") setConfirmFor({ areaId: a.area_id, status: confirm });
       });
   }, []);
 
@@ -224,6 +232,12 @@ export default function LightDeyApp() {
   const area = areas.find((a) => a.area_id === areaId) ?? null;
   // Today's "Light came / Light went" list and the week pattern for the area on screen
   const timeline = useTimeline(area?.area_id ?? "", area?.last_report_at ?? "");
+  // Points (only while rewards are on). Re-checked after reporting and every few minutes,
+  // because points land when a neighbour confirms, which can be a while after you report.
+  const [pointsTick, setPointsTick] = useState(0);
+  const points = usePoints(`${pointsTick}-${Math.floor(updatedAt / (3 * 60_000))}`);
+  const pointsOn = points?.enabled === true;
+  const contest = useContest(pointsOn);
   const week = useAreaWeek(area?.area_id ?? "", area?.last_report_at ? area.last_report_at.slice(0, 13) : "");
 
   function updatePlaces(next: Place[]) {
@@ -359,6 +373,8 @@ export default function LightDeyApp() {
     }
     await load();
     setReported(true);
+    setConfirmFor(null);
+    setPointsTick((n) => n + 1);
     return "ok";
   }
 
@@ -550,8 +566,26 @@ export default function LightDeyApp() {
           }}
         />
 
+        {confirmFor?.areaId === area.area_id && (
+          <div className="ld-card-in flex items-start gap-3 rounded-[20px] border border-(--light) bg-(--light)/10 px-4 py-3.5" role="note">
+            <span className="flex flex-1 flex-col gap-0.5">
+              <strong className="text-[15px]">
+                {confirmFor.status === "on" ? `Light don come for ${area.name}?` : `Light don go for ${area.name}?`}
+              </strong>
+              <span className="text-[14px] text-(--soft)">
+                A neighbour just reported it. If you&apos;re there, tap what you see below
+                {pointsOn ? " to confirm and earn points." : " to confirm it."}
+              </span>
+            </span>
+            <button onClick={() => setConfirmFor(null)} aria-label="Dismiss" className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center text-(--muted)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
+        )}
+
         <div {...rise(0)}>
           <ReportButtons
+            pointsOn={pointsOn}
             areaId={area.area_id}
             areaName={area.name}
             onReport={report}
@@ -616,11 +650,19 @@ export default function LightDeyApp() {
         </div>
 
         <div {...rise(1)}>
+          <ContestCard contest={contest} refCode={points?.enabled ? points.ref : null} />
+        </div>
+
+        <div {...rise(1)}>
+          <PointsCard points={points} onChanged={() => setPointsTick((n) => n + 1)} />
+        </div>
+
+        <div {...rise(1)}>
           <BandCheck key={settingsKey} areaId={area.area_id} areaName={area.name} avg={week?.enough ? week.avg : null} variant="ask" />
         </div>
 
         <div {...rise(2)}>
-          <NotifyButton key={settingsKey} areaId={area.area_id} areaName={area.name} variant="home" onOpenSettings={() => setSettingsOpen(true)} />
+          <NotifyButton key={settingsKey} areaId={area.area_id} areaName={area.name} variant="home" pointsOn={pointsOn} onOpenSettings={() => setSettingsOpen(true)} />
         </div>
 
         <div {...rise(2)}>

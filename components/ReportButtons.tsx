@@ -94,6 +94,7 @@ function Check() {
 type Props = {
   areaId?: string; // for "You helped": how many people follow this area and reported today
   areaName: string;
+  pointsOn?: boolean; // rewards switched on: mention points after reporting
   onReport: (status: Choice) => Promise<ReportOutcome>;
   // Optional "came earlier?" fix. Returns the minutes actually counted, or null if it failed.
   onEarlier?: (minutes: number) => Promise<number | null>;
@@ -118,7 +119,7 @@ function agoText(mins: number) {
 // a bar that drains over the 15-minute wait, then both unlock again.
 // The wait is per phone (not per area), same as the server rule, and survives reloads.
 // "Thanks! 23 people follow Tanke. You're 1 of 7 who reported today."
-async function helpedNote(areaId: string, areaName: string): Promise<string | null> {
+async function helpedNote(areaId: string, areaName: string, pointsOn: boolean): Promise<string | null> {
   const { data } = await supabase.rpc("area_helped", { p_area: areaId });
   const d = data as { followers: number; reporters_today: number } | null;
   if (!d) return null;
@@ -127,10 +128,11 @@ async function helpedNote(areaId: string, areaName: string): Promise<string | nu
   else parts.push("Your neighbours can see it now.");
   if (d.reporters_today > 1) parts.push(`You're 1 of ${d.reporters_today} who reported today.`);
   else parts.push("You're the first to report today.");
+  if (pointsOn) parts.push("Your points land once a neighbour confirms.");
   return parts.join(" ");
 }
 
-export function ReportButtons({ areaId, areaName, onReport, onEarlier, onComplain }: Props) {
+export function ReportButtons({ areaId, areaName, pointsOn = false, onReport, onEarlier, onComplain }: Props) {
   const [last, setLast] = useState<Last | null>(readLast);
   const [now, setNow] = useState(() => Date.now());
   const [sending, setSending] = useState<Choice | null>(null);
@@ -174,7 +176,7 @@ export function ReportButtons({ areaId, areaName, onReport, onEarlier, onComplai
       startCooldown(status);
       setJustSent((n) => n + 1);
       setNote("Thanks! Your neighbours can see it now.", true);
-      if (areaId) helpedNote(areaId, areaName).then((t) => t && setNote(t, true)).catch(() => {});
+      if (areaId) helpedNote(areaId, areaName, pointsOn).then((t) => t && setNote(t, true)).catch(() => {});
       if (onEarlier) setEarlier({ status, at: Date.now(), picked: null });
     } else if (outcome === "too_soon") {
       // Reported from another tab or after clearing the app: wait it out from now

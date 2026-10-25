@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "What Light Dey collects, why, and how to have it deleted.",
 };
 
-const UPDATED = "24 October 2026";
+const UPDATED = "25 October 2026";
 
 function H({ children }: { children: React.ReactNode }) {
   return <h2 className="mt-4 font-display text-[22px] font-extrabold tracking-tight">{children}</h2>;
@@ -27,7 +27,8 @@ export default function PrivacyPage() {
 
       <p>
         Light Dey shows whether there&apos;s light in your area, using reports from people who live there. We built it to
-        collect as little about you as possible. <strong className="text-(--text)">No sign-up, no name, no phone number, no email.</strong>
+        collect as little about you as possible. <strong className="text-(--text)">No sign-up, no name, no phone number, no email.</strong>{" "}
+        The one exception is when you choose to turn points into data (see below).
       </p>
 
       <H>What we collect</H>
@@ -70,6 +71,16 @@ export default function PrivacyPage() {
           want &quot;light gone&quot; alerts and the morning summary. Turn any of them off from the same switch.
         </li>
         <li>
+          <strong className="text-(--text)">Points.</strong> When rewards are running, we note the points your phone ID earns
+          and which neighbour&apos;s report agreed with yours (by phone ID only). If you joined through someone&apos;s invite
+          link, we note whose link it was, so they can get points when you start reporting.
+        </li>
+        <li>
+          <strong className="text-(--text)">Your Damacsub phone number or email, only if you claim data.</strong> We use it
+          to check you have a Damacsub account and to send your data. We share it with Damacsub for that only, and delete it
+          from Light Dey once your claim is paid or turned down.
+        </li>
+        <li>
           <strong className="text-(--text)">Settings on your phone only:</strong> your area, light/dark mode and similar. These
           stay on your phone.
         </li>
@@ -83,6 +94,7 @@ export default function PrivacyPage() {
           sending fake reports can be blocked, and what it sent removed.
         </li>
         <li>To send the alerts you asked for.</li>
+        <li>To give points for confirmed reports and send the data you claim.</li>
         <li>
           To understand power supply and complaints across Nigeria, and share that as{" "}
           <strong className="text-(--text)">totals</strong> (see below).
@@ -104,8 +116,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong className="text-(--text)">Services that run the app:</strong> our database host (Supabase), our website host
-          (Vercel), map images from OpenStreetMap, and your phone&apos;s notification service (Google or Apple) if you turn on
-          alerts. They only get what&apos;s needed to do that job.
+          (Vercel), map images from OpenStreetMap, your phone&apos;s notification service (Google or Apple) if you turn on
+          alerts, and Damacsub if you claim data. They only get what&apos;s needed to do that job.
         </li>
       </ul>
 

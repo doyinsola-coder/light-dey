@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { timeAgo } from "@/lib/helpers";
 import {
   Card, Skeleton, useAdmin, phone, type Tab,
-  IFlag, IMerge, IMegaphone, IChevron, ILive, ISearch, IPhone, ISwords, ITown, IQuestion, IDownload, IChart,
+  IFlag, IMerge, IMegaphone, IChevron, ILive, ISearch, IPhone, ISwords, ITown, IQuestion, IGift, IChart,
 } from "./ui";
 
 type Home = {
@@ -40,6 +40,7 @@ export function Overview({ onAlerts }: { onAlerts?: (n: number) => void }) {
   const [h, setH] = useState<Home | null>(null);
   const [alerts, setAlerts] = useState<{ n: number; top: number } | null>(null);
   const [dupes, setDupes] = useState(0);
+  const [claims, setClaims] = useState(0); // data claims waiting to be paid
   const [feed, setFeed] = useState<FeedRow[] | null>(null);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export function Overview({ onAlerts }: { onAlerts?: (n: number) => void }) {
       onAlerts?.(open.length);
     });
     call<unknown[]>("admin_duplicates", { p_city: null }).then((d) => setDupes(d?.length ?? 0));
+    call<number>("admin_rewards_pending").then((n) => setClaims(Number(n) || 0));
     call<FeedRow[]>("admin_live_feed", { p_city: null }).then((d) => d && setFeed(d.slice(0, 5)));
   }, [call, onAlerts]);
 
@@ -64,7 +66,7 @@ export function Overview({ onAlerts }: { onAlerts?: (n: number) => void }) {
     { tab: "towns", label: "Towns", Icon: ITown },
     { tab: "questions", label: "Questions", Icon: IQuestion },
     { tab: "growth", label: "Growth", Icon: IChart },
-    { tab: "download", label: "Download", Icon: IDownload },
+    { tab: "rewards", label: "Rewards", Icon: IGift, badge: claims },
   ];
 
   return (
@@ -81,7 +83,7 @@ export function Overview({ onAlerts }: { onAlerts?: (n: number) => void }) {
         </div>
         <span className="font-display text-[52px] font-extrabold leading-[1.05] tracking-[-2px]">{h.people_today.toLocaleString()}</span>
         <span className="text-[14px] font-semibold opacity-75">
-          {h.reports_today.toLocaleString()} reports from {h.areas_today.toLocaleString()} areas
+          {h.reports_today.toLocaleString()} report{h.reports_today === 1 ? "" : "s"} from {h.areas_today.toLocaleString()} area{h.areas_today === 1 ? "" : "s"}
         </span>
         <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           <button onClick={() => go("live")} className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] bg-(--ink) text-[14px] font-extrabold text-(--light)">

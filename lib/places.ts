@@ -31,23 +31,41 @@ export function trackVisit() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   const fromUrl = url.searchParams.get("from")?.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20) || "";
-  if (fromUrl) {
+  // ?ref=<code>: someone's invite link (only matters for a brand-new phone)
+  const refUrl = url.searchParams.get("ref")?.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6) || "";
+  if (fromUrl || refUrl) {
     // Tidy the address bar so shared links don't carry it on
     url.searchParams.delete("from");
+    url.searchParams.delete("ref");
     window.history.replaceState(null, "", url.pathname + (url.search ? url.search : "") + url.hash);
   }
 
   let source = store.get("lightdey_from");
   if (!source) {
     // Used the app before tracking existed? Don't count them as new.
-    const usedBefore = !!(store.get("lightdey_area") || store.get("lightdey_device_id"));
-    source = usedBefore ? "existing" : fromUrl || "direct";
+    let madeNow = false;
+    try {
+      madeNow = sessionStorage.getItem("lightdey_new_phone") === "1";
+    } catch {
+      // no session storage: fall back to the saved values below
+    }
+    const usedBefore = !!(store.get("lightdey_area") || (store.get("lightdey_device_id") && !madeNow));
+    source = usedBefore ? "existing" : fromUrl || (refUrl ? "invite" : "direct");
     store.set("lightdey_from", source);
+    if (!usedBefore && refUrl.length === 6) store.set("lightdey_ref", refUrl);
   }
 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(new Date());
   if (store.get("lightdey_seen") === today) return;
+  const ref = store.get("lightdey_ref");
   supabase.rpc("track_visit", { p_device_id: getDeviceId(), p_source: source }).then(({ error }) => {
-    if (!error) store.set("lightdey_seen", today);
+    if (error) return;
+    store.set("lightdey_seen", today);
+    // The server only accepts it for a phone it hasn't seen before today, so send it once
+    if (ref && !store.get("lightdey_ref_sent")) {
+      supabase.rpc("track_referral", { p_device_id: getDeviceId(), p_code: ref }).then(({ error: e }) => {
+        if (!e) store.set("lightdey_ref_sent", "1");
+      });
+    }
   });
 }

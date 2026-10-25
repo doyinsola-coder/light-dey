@@ -31,7 +31,19 @@ type Prefs = { notify_off: boolean; daily: boolean };
 
 // "home": the big "Notify me" button until alerts are on, then a one-line "done" note and nothing after.
 // "settings": the full controls (on/off and the two switches).
-export function NotifyButton({ areaId, areaName, variant = "settings", onOpenSettings }: { areaId: string; areaName: string; variant?: "home" | "settings"; onOpenSettings?: () => void }) {
+export function NotifyButton({
+  areaId,
+  areaName,
+  variant = "settings",
+  onOpenSettings,
+  pointsOn = false,
+}: {
+  areaId: string;
+  areaName: string;
+  variant?: "home" | "settings";
+  onOpenSettings?: () => void;
+  pointsOn?: boolean; // rewards on: alerts are also how you confirm reports and earn points
+}) {
   const [justOn, setJustOn] = useState<string | null>(null); // area turned on from home, this visit
   const [state, setState] = useState<{ areaId: string; mode: Mode }>(() => ({ areaId, mode: initialMode() }));
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +191,11 @@ export function NotifyButton({ areaId, areaName, variant = "settings", onOpenSet
           </svg>
           <span className="flex flex-col">
             <span className="text-[15px] font-bold">{on ? `Alerts on for ${areaName}` : "Notify me when light comes"}</span>
-            <span className="text-[13px] text-(--muted)">{on ? "Tap to turn off" : `We'll ping you when ${areaName} gets light`}</span>
+            <span className="text-[13px] text-(--muted)">{on
+                ? "Tap to turn off"
+                : pointsOn
+                  ? `Know when ${areaName} gets light, and earn points confirming it`
+                  : `We'll ping you when ${areaName} gets light`}</span>
           </span>
         </span>
         <span

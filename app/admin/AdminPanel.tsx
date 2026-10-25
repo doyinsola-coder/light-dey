@@ -9,6 +9,7 @@ import {
   IHome, ILive, IAreas, IMegaphone, IMore, ILock, IRefresh, ICheck, IEye, IChevron, IBell,
 } from "./ui";
 import { Overview, Growth } from "./Overview";
+import { Rewards } from "./Rewards";
 import { MAKER } from "@/lib/brand";
 import { Live } from "./Live";
 import { Areas } from "./Areas";
@@ -38,8 +39,9 @@ const TITLES: Record<Tab, string> = {
   battles: "City battles",
   download: "Download data",
   growth: "Growth",
+  rewards: "Rewards",
 };
-const UNDER_MORE: Tab[] = ["battles", "towns", "phones", "questions", "download", "growth"];
+const UNDER_MORE: Tab[] = ["battles", "towns", "phones", "questions", "download", "growth", "rewards"];
 
 export function AdminPanel() {
   const [key, setKey] = useState("");
@@ -185,6 +187,7 @@ export function AdminPanel() {
           {tab === "live" && <Live initial={sub === "alerts" ? "alerts" : "feed"} />}
           {tab === "areas" && <Areas initial={sub === "dupes" ? "dupes" : sub === "add" ? "add" : "find"} />}
           {tab === "growth" && <Growth />}
+          {tab === "rewards" && <Rewards />}
           {tab === "announce" && <Announce />}
           {tab === "more" && <More />}
           {tab === "towns" && <Towns />}

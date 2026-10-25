@@ -13,6 +13,8 @@ export function getDeviceId(): string {
     if (!id) {
       id = crypto.randomUUID();
       localStorage.setItem(KEY, id);
+      // Made during this visit: tells trackVisit this is a new phone, even if something asked for the ID first
+      sessionStorage.setItem("lightdey_new_phone", "1");
     }
     return id;
   } catch {

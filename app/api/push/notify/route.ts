@@ -19,6 +19,9 @@ export async function POST(req: Request) {
   if (error) return Response.json({ sent: 0, error: error.message }, { status: 500 });
   if (!name) return Response.json({ sent: 0, reason: "nothing new" });
 
+  // Rewards on: the alert also asks people who are there to confirm (and earn points)
+  const { data: pointsOn } = await db.rpc("rewards_on");
+
   let q = db.from("push_subscriptions").select("endpoint, p256dh, auth").eq("area_id", areaId);
   if (kind === "off") q = q.eq("notify_off", true);
   const { data: subs } = await q;
@@ -27,8 +30,18 @@ export async function POST(req: Request) {
     (subs as Target[] | null) ?? [],
     () =>
       kind === "on"
-        ? { title: "Light don come!", body: `Neighbours say light dey for ${name} now.`, tag: `light-${areaId}`, url: `/?area=${areaId}` }
-        : { title: "Light don go", body: `Neighbours say no light for ${name} now.`, tag: `light-${areaId}`, url: `/?area=${areaId}` },
+        ? {
+            title: "Light don come!",
+            body: `Neighbours say light dey for ${name} now. ${pointsOn ? "There? Tap to confirm and earn points." : "There? Tap to confirm."}`,
+            tag: `light-${areaId}`,
+            url: `/?area=${areaId}&confirm=on`,
+          }
+        : {
+            title: "Light don go",
+            body: `Neighbours say no light for ${name} now. ${pointsOn ? "There? Tap to confirm and earn points." : "There? Tap to confirm."}`,
+            tag: `light-${areaId}`,
+            url: `/?area=${areaId}&confirm=off`,
+          },
     60 * 30, // old news after 30 mins
     "high"
   );
