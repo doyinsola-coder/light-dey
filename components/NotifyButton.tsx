@@ -27,6 +27,44 @@ async function getRegistration() {
   return (await navigator.serviceWorker.getRegistration("/")) ?? navigator.serviceWorker.register("/sw.js");
 }
 
+// The areas this phone turned alerts on for, kept on the phone as a backup of the server's list
+const ALERTS_KEY = "lightdey_alerts";
+function rememberedOn(areaId: string): boolean {
+  try {
+    return (JSON.parse(localStorage.getItem(ALERTS_KEY) ?? "[]") as string[]).includes(areaId);
+  } catch {
+    return false;
+  }
+}
+function remember(areaId: string, on: boolean) {
+  try {
+    const list = (JSON.parse(localStorage.getItem(ALERTS_KEY) ?? "[]") as string[]).filter((id) => id !== areaId);
+    localStorage.setItem(ALERTS_KEY, JSON.stringify(on ? [...list, areaId] : list));
+  } catch {
+    // private mode: the server check still works
+  }
+}
+
+// Save this phone's subscription for an area on the server. true if it worked.
+async function saveSub(sub: PushSubscription, areaId: string): Promise<boolean> {
+  const json = sub.toJSON();
+  const { error } = await supabase.rpc("save_push_subscription", {
+    p_endpoint: sub.endpoint,
+    p_p256dh: json.keys?.p256dh ?? "",
+    p_auth: json.keys?.auth ?? "",
+    p_area_id: areaId,
+  });
+  return !error;
+}
+
+// Permission is still granted but the browser has no subscription any more: make a new one
+async function resubscribe(areaId: string): Promise<boolean> {
+  const reg = await getRegistration();
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID) });
+  return saveSub(sub, areaId);
+}
+
 type Prefs = { notify_off: boolean; daily: boolean };
 
 // "home": the big "Notify me" button until alerts are on, then a one-line "done" note and nothing after.
@@ -52,19 +90,40 @@ export function NotifyButton({
   const p: Prefs = prefs?.areaId === areaId ? prefs.p : { notify_off: false, daily: true };
 
   // Is this phone already following this area?
+  // The server's list is the truth, but if this phone turned alerts on for this area and the server
+  // lost it (an old database function, a cleaned-up subscription), quietly save it again instead of
+  // making the person switch it back on every visit.
   useEffect(() => {
     if (initialMode() !== "checking") return;
     let alive = true;
     getRegistration()
       .then((reg) => reg.pushManager.getSubscription())
       .then(async (sub) => {
-        if (!sub) return false;
-        const { data } = await supabase.rpc("push_prefs", { p_endpoint: sub.endpoint, p_area_id: areaId });
-        if (data && alive) setPrefs({ areaId, p: data as Prefs });
-        return Boolean(data);
+        if (!sub) {
+          if (Notification.permission === "granted" && rememberedOn(areaId)) {
+            // The browser dropped the subscription (it can rotate them): make a new one
+            return resubscribe(areaId);
+          }
+          return false;
+        }
+        const { data, error } = await supabase.rpc("push_prefs", { p_endpoint: sub.endpoint, p_area_id: areaId });
+        if (!error && data) {
+          if (alive) setPrefs({ areaId, p: data as Prefs });
+          remember(areaId, true);
+          return true;
+        }
+        if (error) {
+          // Older database without push_prefs: fall back to the simple check
+          const { data: has } = await supabase.rpc("has_push_subscription", { p_endpoint: sub.endpoint, p_area_id: areaId });
+          if (has === true) {
+            remember(areaId, true);
+            return true;
+          }
+        }
+        return rememberedOn(areaId) ? saveSub(sub, areaId) : false;
       })
       .then((on) => alive && setState({ areaId, mode: on ? "on" : "off" }))
-      .catch(() => alive && setState({ areaId, mode: "off" }));
+      .catch(() => alive && setState({ areaId, mode: rememberedOn(areaId) ? "on" : "off" }));
     return () => {
       alive = false;
     };
@@ -92,6 +151,7 @@ export function NotifyButton({
         p_area_id: areaId,
       });
       if (err) throw new Error(err.message);
+      remember(areaId, true);
       setPrefs({ areaId, p: { notify_off: false, daily: true } });
       setState({ areaId, mode: "on" });
       setJustOn(areaId);
@@ -111,6 +171,7 @@ export function NotifyButton({
     try {
       const sub = await (await getRegistration()).pushManager.getSubscription();
       if (sub) await supabase.rpc("remove_push_subscription", { p_endpoint: sub.endpoint, p_area_id: areaId });
+      remember(areaId, false);
     } catch {
       // nothing to undo
     }
