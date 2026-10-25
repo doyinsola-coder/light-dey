@@ -29,7 +29,10 @@ async function getRegistration() {
 
 type Prefs = { notify_off: boolean; daily: boolean };
 
-export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: string }) {
+// "home": the big "Notify me" button until alerts are on, then a one-line "done" note and nothing after.
+// "settings": the full controls (on/off and the two switches).
+export function NotifyButton({ areaId, areaName, variant = "settings", onOpenSettings }: { areaId: string; areaName: string; variant?: "home" | "settings"; onOpenSettings?: () => void }) {
+  const [justOn, setJustOn] = useState<string | null>(null); // area turned on from home, this visit
   const [state, setState] = useState<{ areaId: string; mode: Mode }>(() => ({ areaId, mode: initialMode() }));
   const [error, setError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<{ areaId: string; p: Prefs } | null>(null);
@@ -79,6 +82,7 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
       if (err) throw new Error(err.message);
       setPrefs({ areaId, p: { notify_off: false, daily: true } });
       setState({ areaId, mode: "on" });
+      setJustOn(areaId);
     } catch (e) {
       setError(
         e instanceof Error && e.message.includes("too_many_areas")
@@ -122,6 +126,24 @@ export function NotifyButton({ areaId, areaName }: { areaId: string; areaName: s
   }
 
   if (mode === "unsupported" || mode === "checking") return null;
+
+  if (variant === "home") {
+    if (mode === "blocked") return null;
+    if (mode === "on") {
+      if (justOn !== areaId) return null;
+      return (
+        <p className="ld-card-in flex items-center gap-2 rounded-2xl border border-(--light) bg-(--raised) px-4 py-3 text-[14px]" role="status">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-(--light-text)"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+          <span>
+            Alerts on for {areaName}.{" "}
+            <button onClick={onOpenSettings} className="font-bold text-(--light-text) underline underline-offset-2">
+              Alert settings
+            </button>
+          </span>
+        </p>
+      );
+    }
+  }
 
   if (mode === "ios-install") {
     return (

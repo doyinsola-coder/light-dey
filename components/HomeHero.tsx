@@ -5,7 +5,6 @@ import type { AreaStatus } from "@/lib/types";
 import { supabase, getDeviceId } from "@/lib/supabase";
 import { timeAgo } from "@/lib/helpers";
 import { clock, usualNext, type Event, type useAreaWeek } from "@/lib/areaData";
-import { BandCheck } from "@/components/BandCheck";
 
 type WeekInfo = ReturnType<typeof useAreaWeek>;
 type Band = "A" | "B" | "C" | "D" | "E";
@@ -19,6 +18,7 @@ type Props = {
   canSave: boolean;
   onSave: () => void;
   onChangeArea: () => void;
+  onOpenSettings: () => void;
 };
 
 // Nothing reported in the last hour: the last report from the past 24 hours
@@ -37,11 +37,9 @@ function useLastReport(areaId: string, unknown: boolean) {
   return last?.id === areaId ? last.last : null;
 }
 
-// "Band B · 6.6 hrs short a day this week". Tap to change your band.
-function BandBadge({ areaId, areaName, avg }: { areaId: string; areaName: string; avg: number }) {
+// "Band B · 6.6 hrs short a day this week". Only once the area has a week of reports; tap opens Settings.
+function BandBadge({ areaId, avg, onOpen }: { areaId: string; avg: number; onOpen: () => void }) {
   const [c, setC] = useState<{ id: string; band: Band | null } | null>(null);
-  const [changing, setChanging] = useState(false);
-  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     supabase.rpc("band_check", { p_area: areaId, p_device_id: getDeviceId() }).then(({ data }) => {
@@ -51,23 +49,16 @@ function BandBadge({ areaId, areaName, avg }: { areaId: string; areaName: string
     return () => {
       alive = false;
     };
-  }, [areaId, tick]);
+  }, [areaId]);
   const band = c?.id === areaId ? c.band : null;
-
-  if (changing)
-    return (
-      <div className="mt-2 w-full max-w-sm text-left">
-        <BandCheck areaId={areaId} areaName={areaName} avg={avg} variant="ask" forcePick onDone={() => { setChanging(false); setTick((n) => n + 1); }} />
-      </div>
-    );
   if (!band) return null;
 
   const short = Math.round((PROMISE[band] - avg) * 10) / 10;
   const kept = short <= 0;
   return (
     <button
-      onClick={() => setChanging(true)}
-      aria-label={`Band ${band}. Tap to change your band`}
+      onClick={onOpen}
+      aria-label={`Band ${band}. Open settings to change it`}
       className={`mt-2 rounded-full border px-3 py-1.5 text-[13px] font-bold ${
         kept ? "border-[#30A46C]/40 bg-[#30A46C]/12 text-[#30A46C]" : "border-[#E5484D]/40 bg-[#E5484D]/12 text-[#E5484D]"
       }`}
@@ -77,7 +68,7 @@ function BandBadge({ areaId, areaName, avg }: { areaId: string; areaName: string
   );
 }
 
-export function HomeHero({ area, events, week, saved, canSave, onSave, onChangeArea }: Props) {
+export function HomeHero({ area, events, week, saved, canSave, onSave, onChangeArea, onOpenSettings }: Props) {
   const last = useLastReport(area.area_id, area.status === "unknown");
   const people = area.on_count + area.off_count;
 
@@ -130,7 +121,7 @@ export function HomeHero({ area, events, week, saved, canSave, onSave, onChangeA
       <span className={`mt-2 font-display font-extrabold leading-[1.1] tracking-[-1.5px] ${wordCls}`}>{word}</span>
       <span className="text-[16px] font-semibold">{line}</span>
       {usual && <span className="text-[15px] text-(--muted)">{usual}</span>}
-      {week?.enough && <BandBadge areaId={area.area_id} areaName={area.name} avg={week.avg} />}
+      {week?.enough && <BandBadge areaId={area.area_id} avg={week.avg} onOpen={onOpenSettings} />}
       {!saved && canSave && (
         <button onClick={onSave} className="mt-2 flex min-h-9 items-center gap-1.5 rounded-full border border-(--light) bg-(--light)/15 px-3.5 text-[13px] font-bold">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>

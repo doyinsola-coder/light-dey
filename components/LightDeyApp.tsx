@@ -25,13 +25,14 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { LiveRow } from "@/components/LiveRow";
 import { Celebrate } from "@/components/Celebrate";
 import { CountUp } from "@/components/CountUp";
-import { MAKER, whatsappChatLink } from "@/lib/brand";
+import { MAKER } from "@/lib/brand";
 import dynamic from "next/dynamic";
 import { IconPin, IconArrowRight } from "@/components/Icons";
 import { HomeHero } from "@/components/HomeHero";
 import { TodayTimeline } from "@/components/TodayTimeline";
 import { OtherPlaces, type PlaceInfo } from "@/components/OtherPlaces";
 import { BandCheck } from "@/components/BandCheck";
+import { SettingsSheet, SettingsButton } from "@/components/SettingsSheet";
 import { useTimeline, useAreaWeek } from "@/lib/areaData";
 import { loadPlaces, savePlaces, trackVisit, MAX_PLACES, type Place } from "@/lib/places";
 
@@ -67,6 +68,13 @@ export default function LightDeyApp() {
   const [places, setPlaces] = useState<Place[]>(loadPlaces);
   const [placeInfo, setPlaceInfo] = useState<PlaceInfo>({});
   const [pickMode, setPickMode] = useState<"add" | "replace">("add");
+  // The settings sheet (band, alerts, theme). Closing it bumps settingsKey so the home cards re-check.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsKey, setSettingsKey] = useState(0);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    setSettingsKey((n) => n + 1);
+  }, []);
 
   // What we saw last time, so we can spot "no light" turning into "light dey" while the app is open
   const areasRef = useRef<AreaStatus[]>([]);
@@ -500,7 +508,7 @@ export default function LightDeyApp() {
         : `${area.status === "on" ? "Light dey" : "No light"} for ${area.name} right now. Check your area: ${location.origin}`;
 
     // Sections slide up one after another when the screen opens
-    const rise = (i: number) => ({ className: "ld-rise", style: { animationDelay: `${80 + i * 70}ms` } });
+    const rise = (i: number) => ({ className: "ld-rise empty:hidden", style: { animationDelay: `${80 + i * 70}ms` } });
 
     const glow =
       area.status === "on"
@@ -513,13 +521,14 @@ export default function LightDeyApp() {
       <main key="home" className="ld-view-in ld-safe-top ld-safe-bottom mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5" style={{ backgroundImage: glow }}>
         <header className="flex items-center gap-2">
           <div className="mr-auto"><Logo /></div>
-          <ThemeToggle />
+          <SettingsButton onClick={() => setSettingsOpen(true)} />
         </header>
 
         <Announcement city={area.city} />
 
         <HomeHero
-          key={`${area.area_id}-${area.status}`}
+          key={`${area.area_id}-${area.status}-${settingsKey}`}
+          onOpenSettings={() => setSettingsOpen(true)}
           area={area}
           events={timeline?.events ?? null}
           week={week}
@@ -607,11 +616,11 @@ export default function LightDeyApp() {
         </div>
 
         <div {...rise(1)}>
-          <BandCheck areaId={area.area_id} areaName={area.name} avg={week?.enough ? week.avg : null} variant="ask" />
+          <BandCheck key={settingsKey} areaId={area.area_id} areaName={area.name} avg={week?.enough ? week.avg : null} variant="ask" />
         </div>
 
         <div {...rise(2)}>
-          <NotifyButton areaId={area.area_id} areaName={area.name} />
+          <NotifyButton key={settingsKey} areaId={area.area_id} areaName={area.name} variant="home" onOpenSettings={() => setSettingsOpen(true)} />
         </div>
 
         <div {...rise(2)}>
@@ -685,20 +694,6 @@ export default function LightDeyApp() {
             </a>
           </span>
           <span>Follow for what I build next</span>
-          <a
-            href={whatsappChatLink()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 flex min-h-11 items-center gap-2 rounded-full border border-(--line) bg-(--raised) px-4 text-[14px] font-bold text-(--text)"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true">
-              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" />
-            </svg>
-            Chat with me on WhatsApp
-          </a>
-          <a href="/privacy" className="mt-2 min-h-9 text-[13px] text-(--muted) underline underline-offset-4">
-            Privacy
-          </a>
         </footer>
       </main>
     );
@@ -711,6 +706,9 @@ export default function LightDeyApp() {
       <TabBar view={view} onChange={setView} />
       {view === "home" && <InstallPrompt nudge={reported} />}
       {celebrate && <Celebrate areaName={celebrate} onDone={endCelebrate} />}
+      {settingsOpen && area && (
+        <SettingsSheet areaId={area.area_id} areaName={area.name} avg={week?.enough ? week.avg : null} onClose={closeSettings} />
+      )}
     </>
   );
 }

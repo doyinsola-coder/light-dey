@@ -19,7 +19,7 @@ type Props = {
   areaId: string;
   areaName: string;
   avg: number | null;
-  variant?: "full" | "ask"; // "ask": only the question, when this phone hasn't said its band yet
+  variant?: "full" | "ask" | "settings"; // "ask": only the question, when this phone hasn't said its band yet. "settings": always the A–E buttons
   forcePick?: boolean; // open straight on the A–E buttons (changing your band)
   onDone?: () => void;
 };
@@ -31,6 +31,7 @@ export function BandCheck({ areaId, areaName, avg, variant = "full", forcePick =
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [skipped, setSkipped] = useState(() => store.get("lightdey_band_skip") === "1");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -66,6 +67,7 @@ export function BandCheck({ areaId, areaName, avg, variant = "full", forcePick =
       return;
     }
     buzz([15, 30, 15]);
+    setSaved(true);
     setPicking(false);
     setTick((n) => n + 1);
     onDone?.();
@@ -75,6 +77,43 @@ export function BandCheck({ areaId, areaName, avg, variant = "full", forcePick =
   if (!c) return null;
   const band = c.mine ?? c.area;
   const choosing = picking || forcePick;
+
+  // Settings: the A–E buttons every time, with this phone's answer highlighted
+  if (variant === "settings") {
+    return (
+      <div className="flex flex-col gap-2">
+        <span className="text-[14px] leading-snug text-(--soft)">
+          {c.mine
+            ? `You said ${areaName} is Band ${c.mine}. Tap another to change it.`
+            : c.area
+              ? `Neighbours say ${areaName} is Band ${c.area}. What's yours?`
+              : `What band is ${areaName}?`}
+        </span>
+        <div className="flex gap-1.5" role="radiogroup" aria-label="Your band">
+          {BANDS.map((b) => {
+            const mine = c.mine === b;
+            return (
+              <button
+                key={b}
+                role="radio"
+                aria-checked={mine}
+                onClick={() => !mine && pick(b)}
+                disabled={!!busy}
+                className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-[15px] font-bold transition-transform active:scale-95 ${
+                  mine || busy === b ? "border-(--light) bg-(--light) text-(--ink)" : "border-(--line) bg-(--raised)"
+                }`}
+              >
+                {b}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-xs text-(--muted)" role="status">
+          {error ?? (saved ? "Saved. Thanks!" : "Not sure? It's on your token receipt or bill.")}
+        </span>
+      </div>
+    );
+  }
 
   if (variant === "ask" && !choosing && (band || skipped)) return null;
 
